@@ -1,22 +1,3 @@
-<<<<<<< HEAD
-import { useEffect, useMemo, useState } from "react";
-import { DollarSign, Calendar, Users, ShoppingBag } from "lucide-react";
-import { Period, SalesAnalytics } from "../../types/analytics";
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from "recharts";
-=======
 import React, { useMemo, useState } from "react";
 import StatCard from "../../../(frontend)/components/StatCard";
 import { formatCurrency } from "../../../backend/services/dataService";
@@ -26,9 +7,14 @@ import {
   Users,
   ShoppingBag,
 } from "lucide-react";
->>>>>>> f7aee5b55e39cb8470d6ed484ec07dc7cf001332
 
-import { Order, Location } from "../../../../types";
+type Period = "daily" | "weekly" | "monthly" | "annually";
+
+interface ProductStat {
+  title: string;
+  quantity: number;
+  revenue: number;
+}
 
 interface SalesProps {
 <<<<<<< HEAD
@@ -36,86 +22,8 @@ interface SalesProps {
   locations: Location[];
 =======
   orders: any[];
->>>>>>> f7aee5b55e39cb8470d6ed484ec07dc7cf001332
 }
-/* ---------------- utils ---------------- */
 
-<<<<<<< HEAD
-const formatCurrency = (n: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(n);
-
-const daysInMonth = (year: number, month: number) =>
-  new Date(year, month, 0).getDate();
-
-// ISO week number
-const getISOWeek = (date: Date) => {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-};
-
-const COLORS = [
-  "#8884d8",
-  "#82ca9d",
-  "#ffc658",
-  "#ff8042",
-  "#00c49f",
-];
-
-
-/* ---------------- component ---------------- */
-
-export default function Sales({ orders, locations }) {
-  const now = new Date();
-
-  const [period, setPeriod] = useState<Period>("daily");
-  const [data, setData] = useState<SalesAnalytics | null>(null);
-
-  // filters
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [day, setDay] = useState(now.getDate());
-  const [week, setWeek] = useState(getISOWeek(now));
-
-  // earliest year from DB
-  const [minYear, setMinYear] = useState<number | null>(null);
-
-  /* ---------------- fetch min year ---------------- */
-
-  useEffect(() => {
-    fetch("http://localhost:3001/api/filters")
-      .then(res => res.json())
-      .then(res => {
-        setMinYear(res.minYear);
-        setYear(new Date().getFullYear()); // keep default = current year
-      })
-      .catch(console.error);
-  }, []);
-
-  /* ---------------- fetch analytics ---------------- */
-
-  useEffect(() => {
-    if (!minYear) return;
-
-    const params = new URLSearchParams({
-      period,
-      year: year.toString(),
-      month: month.toString(),
-      day: day.toString(),
-      week: week.toString(),
-    });
-
-    fetch(`http://localhost:3001/api/analytics?${params}`)
-      .then(res => res.json())
-      .then(setData)
-      .catch(console.error);
-  }, [period, year, month, day, week, minYear]);
-=======
 const Sales: React.FC<SalesProps> = ({ orders }) => {
   const [period, setPeriod] = useState<Period>("monthly");
 
@@ -278,7 +186,6 @@ const Sales: React.FC<SalesProps> = ({ orders }) => {
             </button>
           )
         )}
->>>>>>> f7aee5b55e39cb8470d6ed484ec07dc7cf001332
       </div>
 
       {/* filters */}
@@ -543,42 +450,6 @@ const Sales: React.FC<SalesProps> = ({ orders }) => {
 
     </div>
   );
-}
+};
 
-<<<<<<< HEAD
-/* ---------------- small components ---------------- */
-
-function Stat({ title, value, icon: Icon }: any) {
-  return (
-    <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-800">
-      <p className="text-zinc-400 text-sm">{title}</p>
-      <p className="text-white text-2xl font-bold">{value}</p>
-      <Icon className="text-zinc-600 mt-2" />
-    </div>
-  );
-}
-
-function Table({ title, rows, type }: any) {
-  return (
-    <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-800">
-      <h3 className="text-lg text-white mb-4">{title}</h3>
-      <table className="w-full text-sm">
-        <tbody>
-          {rows.map((r: any) => (
-            <tr key={r.title} className="border-b border-zinc-800">
-              <td className="py-2 text-white">{r.title}</td>
-              <td className="py-2 text-right text-white">
-                {type === "revenue"
-                  ? formatCurrency(r.revenue)
-                  : r.quantity}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-=======
 export default Sales;
->>>>>>> f7aee5b55e39cb8470d6ed484ec07dc7cf001332
