@@ -1,84 +1,103 @@
-import React, { useMemo, useState } from "react";
-import StatCard from "../../../(frontend)/components/StatCard";
-import { formatCurrency } from "../../../backend/services/dataService";
+import { useEffect, useMemo, useState } from "react";
+import { DollarSign, Calendar, Users, ShoppingBag } from "lucide-react";
+import { Period, SalesAnalytics } from "../../types/analytics";
 import {
-  DollarSign,
-  Calendar,
-  Users,
-  ShoppingBag,
-} from "lucide-react";
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 
-type Period = "daily" | "weekly" | "monthly" | "annually";
-
-interface ProductStat {
-  title: string;
-  quantity: number;
-  revenue: number;
-}
+import { Order, Location } from "../../../../types";
 
 interface SalesProps {
-<<<<<<< HEAD
   orders: Order[];
   locations: Location[];
-=======
-  orders: any[];
 }
+/* ---------------- utils ---------------- */
 
-const Sales: React.FC<SalesProps> = ({ orders }) => {
-  const [period, setPeriod] = useState<Period>("monthly");
+const formatCurrency = (n: number) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(n);
 
-  /**
-   * =====================
-   * Aggregated Stats
-   * =====================
-   */
-  const revenue = useMemo(
-    () => orders.reduce((sum, o) => sum + (o.revenue ?? 0), 0),
-    [orders]
-  );
+const daysInMonth = (year: number, month: number) =>
+  new Date(year, month, 0).getDate();
 
-  const referralFees = useMemo(
-    () => orders.reduce((sum, o) => sum + (o.referralFee ?? 0), 0),
-    [orders]
-  );
+// ISO week number
+const getISOWeek = (date: Date) => {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+};
 
-  const customers = useMemo(() => {
-    const unique = new Set(
-      orders.map((o) => o.customerId ?? o.customer_id)
-    );
-    return unique.size;
-  }, [orders]);
+const COLORS = [
+  "#8884d8",
+  "#82ca9d",
+  "#ffc658",
+  "#ff8042",
+  "#00c49f",
+];
 
-  const unitsSold = useMemo(
-    () => orders.reduce((sum, o) => sum + (o.quantity ?? 0), 0),
-    [orders]
-  );
 
-  /**
-   * =====================
-   * Products aggregation
-   * =====================
-   */
-  const products = useMemo<ProductStat[]>(() => {
-    const map = new Map<string, ProductStat>();
+/* ---------------- component ---------------- */
 
-    orders.forEach((o) => {
-      const title = o.productTitle ?? o.product_title ?? "Unknown Product";
-      const quantity = o.quantity ?? 0;
-      const revenue = o.revenue ?? 0;
+export default function Sales({ orders, locations }) {
+  const now = new Date();
 
-      if (!map.has(title)) {
-        map.set(title, { title, quantity: 0, revenue: 0 });
-      }
+  const [period, setPeriod] = useState<Period>("daily");
+  const [data, setData] = useState<SalesAnalytics | null>(null);
 
-      const item = map.get(title)!;
-      item.quantity += quantity;
-      item.revenue += revenue;
+  // filters
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [day, setDay] = useState(now.getDate());
+  const [week, setWeek] = useState(getISOWeek(now));
+
+  // earliest year from DB
+  const [minYear, setMinYear] = useState<number | null>(null);
+
+  /* ---------------- fetch min year ---------------- */
+
+  useEffect(() => {
+    fetch("http://localhost:3001/api/filters")
+      .then(res => res.json())
+      .then(res => {
+        setMinYear(res.minYear);
+        setYear(new Date().getFullYear()); // keep default = current year
+      })
+      .catch(console.error);
+  }, []);
+
+  /* ---------------- fetch analytics ---------------- */
+
+  useEffect(() => {
+    if (!minYear) return;
+
+    const params = new URLSearchParams({
+      period,
+      year: year.toString(),
+      month: month.toString(),
+      day: day.toString(),
+      week: week.toString(),
     });
 
-    return Array.from(map.values());
-  }, [orders]);
->>>>>>> f7aee5b55e39cb8470d6ed484ec07dc7cf001332
+    fetch(`http://localhost:3001/api/analytics?${params}`)
+      .then(res => res.json())
+      .then(setData)
+      .catch(console.error);
+  }, [period, year, month, day, week, minYear]);
 
   /* ---------------- dropdown values ---------------- */
 
@@ -134,7 +153,6 @@ const Sales: React.FC<SalesProps> = ({ orders }) => {
     [products]
   );
 
-<<<<<<< HEAD
   if (!data) {
     return <p className="text-white p-6">Loading analytics…</p>;
   }
@@ -159,33 +177,6 @@ const Sales: React.FC<SalesProps> = ({ orders }) => {
             {p.charAt(0).toUpperCase() + p.slice(1)}
           </button>
         ))}
-=======
-  return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold text-white">Sales Analytics</h2>
-        <p className="text-zinc-400">
-          Revenue & performance breakdown.
-        </p>
-      </div>
-
-      {/* Period Selector */}
-      <div className="bg-zinc-950 p-1 rounded-lg border border-zinc-800 w-fit">
-        {(["daily", "weekly", "monthly", "annually"] as Period[]).map(
-          (p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={`px-3 py-1.5 text-xs rounded-md ${period === p
-                  ? "bg-zinc-800 text-white"
-                  : "text-zinc-400 hover:text-white"
-                }`}
-            >
-              {p}
-            </button>
-          )
-        )}
       </div>
 
       {/* filters */}
@@ -243,96 +234,12 @@ const Sales: React.FC<SalesProps> = ({ orders }) => {
         )}
       </div>
 
-<<<<<<< HEAD
       {/* stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Stat title="Revenue" value={formatCurrency(data.revenue)} icon={DollarSign} />
         <Stat title="Referral Fees" value={formatCurrency(data.referralFees)} icon={Calendar} />
         <Stat title="Customers" value={data.customers} icon={Users} />
         <Stat title="Units Sold" value={data.unitsSold} icon={ShoppingBag} />
-=======
-      {/* Tables */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Products by Quantity */}
-        <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-800">
-          <h3 className="text-lg font-semibold text-white mb-4">
-            Products Sold by Quantity
-          </h3>
-
-          <table className="w-full text-sm">
-            <thead className="text-zinc-400 border-b border-zinc-800">
-              <tr>
-                <th className="text-left py-2">Product</th>
-                <th className="text-right py-2">Units</th>
-              </tr>
-            </thead>
-            <tbody>
-              {productsByQuantity.length ? (
-                productsByQuantity.map((p) => (
-                  <tr
-                    key={p.title}
-                    className="border-b border-zinc-800 last:border-none"
-                  >
-                    <td className="py-2 text-white">{p.title}</td>
-                    <td className="py-2 text-right text-white">
-                      {p.quantity}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={2}
-                    className="py-4 text-center text-zinc-500"
-                  >
-                    No product data
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Products by Revenue */}
-        <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-800">
-          <h3 className="text-lg font-semibold text-white mb-4">
-            Products Sold by Revenue
-          </h3>
-
-          <table className="w-full text-sm">
-            <thead className="text-zinc-400 border-b border-zinc-800">
-              <tr>
-                <th className="text-left py-2">Product</th>
-                <th className="text-right py-2">Revenue</th>
-              </tr>
-            </thead>
-            <tbody>
-              {productsByRevenue.length ? (
-                productsByRevenue.map((p) => (
-                  <tr
-                    key={p.title}
-                    className="border-b border-zinc-800 last:border-none"
-                  >
-                    <td className="py-2 text-white">{p.title}</td>
-                    <td className="py-2 text-right text-white">
-                      {formatCurrency(p.revenue)}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={2}
-                    className="py-4 text-center text-zinc-500"
-                  >
-                    No product data
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
->>>>>>> f7aee5b55e39cb8470d6ed484ec07dc7cf001332
       </div>
 
       {/* tables */}
@@ -450,6 +357,38 @@ const Sales: React.FC<SalesProps> = ({ orders }) => {
 
     </div>
   );
-};
+}
 
-export default Sales;
+/* ---------------- small components ---------------- */
+
+function Stat({ title, value, icon: Icon }: any) {
+  return (
+    <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-800">
+      <p className="text-zinc-400 text-sm">{title}</p>
+      <p className="text-white text-2xl font-bold">{value}</p>
+      <Icon className="text-zinc-600 mt-2" />
+    </div>
+  );
+}
+
+function Table({ title, rows, type }: any) {
+  return (
+    <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-800">
+      <h3 className="text-lg text-white mb-4">{title}</h3>
+      <table className="w-full text-sm">
+        <tbody>
+          {rows.map((r: any) => (
+            <tr key={r.title} className="border-b border-zinc-800">
+              <td className="py-2 text-white">{r.title}</td>
+              <td className="py-2 text-right text-white">
+                {type === "revenue"
+                  ? formatCurrency(r.revenue)
+                  : r.quantity}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
