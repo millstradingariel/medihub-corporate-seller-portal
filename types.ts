@@ -1,63 +1,85 @@
 export enum DeviceStatus {
-  ACTIVE = 'Active',
-  INACTIVE = 'Inactive',
-  OFFLINE = 'Offline'
+  ACTIVE = "Active",
+  INACTIVE = "Inactive",
+  OFFLINE = "Offline",
 }
 
 export enum DeviceType {
-  QR = 'QR',
-  TABLET = 'Tablet',
-  KIOSK = 'Kiosk'
+  QR = "QR",
+  TABLET = "Tablet",
+  KIOSK = "Kiosk",
 }
 
 export enum OrderStatus {
-  PAID = 'Paid',
-  FULFILLED = 'Fulfilled',
-  RETURNED = 'Returned',
-  PENDING = 'Pending'
+  PAID = "Paid",
+  PARTIALLY_PAID = "Partially Paid",
+  FULFILLED = "Fulfilled",
+  RETURNED = "Returned",
+  PENDING = "Pending",
 }
 
 export interface Partner {
-  id: number;                 // user id
-  company_id: string;         // company UUID
+  id: number;
   email: string;
-  role: string;
+  firebaseUid?: string;
+  isSuperAdmin: boolean;
+  superAdminRole: string | null;
+  companyId: number | null;
+  companyName: string | null;
+  companyRole: string | null;
   name?: string;
+  token?: string;
+  is_active: boolean;
+}
+
+export interface Company {
+  _id: string; // Sanity ID
+  company_id: string;
+  company_name: string;
+  abn: string;
+  company_abn: string;
+  created_at: string;
 }
 
 export interface Location {
-  _id: string;
-  location_id: string;
-  partner_id: string;
+  _id: string; // Sanity ID
+  location_id: string; // internal
+  partner_id: string; // company_id
   location_name: string;
-  attio_location_id: string;
+  attio_location_id: string; // external system ID
 }
 
 export interface OrderItem {
-  product_id: string;
+  product_id?: string;
   title: string;
+  sku?: string | null; // can be null if missing
   quantity: number;
   price: number;
 }
 
 export interface Order {
-  order_id: string;
+  id: string; // shopify order id
+  order_name: string;
   order_date: string;
-  partner_id: string;
-  location_id: string;
-  total_ex_gst: number;
-  commission_amount: number;
   status: OrderStatus;
 
-  items?: OrderItem[]; // ✅ ADD THIS
+  partner_id: string; // company_id
+  location_id: string;
+  kiosk_id: string;
+
+  shopify_customer_id?: string | null;
+  customer_name: string;
+
+  total_ex_gst: number;
+  total_amount: number; // subtotal + taxes - discounts
+
+  items: OrderItem[];
 }
-
-
 
 export interface Device {
   device_id: string;
-  location_id: string;
-  partner_id: string;
+  internalId: string;
+  partner_id: string; // company_id
   device_type: DeviceType;
   status: DeviceStatus;
 }
@@ -70,7 +92,7 @@ export interface SupportIssue {
   title: string;
   description: string;
   created_at: string;
-  status: 'Open' | 'Resolved';
+  status: "Open" | "Resolved";
 }
 
 export interface Feedback {
@@ -82,8 +104,18 @@ export interface Feedback {
   created_at: string;
 }
 
-// Helper types for UI
+// ================= HELPER TYPES =================
+
 export interface UserSession {
   partner: Partner;
   isAuthenticated: boolean;
+}
+
+export interface IUser {
+  id: number;
+  firebase_uid: string;
+  email: string;
+  role: string | null;
+  company_id?: string;
+  created_at?: string;
 }

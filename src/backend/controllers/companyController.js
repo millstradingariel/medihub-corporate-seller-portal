@@ -1,40 +1,8 @@
-// const sanityClient = require('../config/sanityClient');
-
-// const getCompanies = async (req, res) => {
-//   try {
-//     const query = `
-//       *[_type == "company"]{
-//         _id,
-//         name,
-//         abn,
-//         companyid
-//       }
-//     `;
-
-//     const companies = await sanityClient.fetch(query);
-
-//     return res.status(200).json({
-//       success: true,
-//       data: companies
-//     });
-//   } catch (error) {
-//     console.error('Sanity getCompanies error:', error);
-//     return res.status(500).json({
-//       success: false,
-//       message: 'Failed to fetch companies'
-//     });
-//   }
-// };
-
-// module.exports = {
-//   getCompanies
-// };
-
-const db = require("../db");
+const { pool } = require("../db");
 
 /* GET all companies */
 const getCompanies = async (req, res) => {
-  const [rows] = await db.query("SELECT * FROM companies");
+  const [rows] = await pool.query("SELECT * FROM company");
   res.json({ success: true, data: rows });
 };
 
@@ -46,7 +14,7 @@ const getCompanyByEmail = async (req, res) => {
       return res.status(400).json({ error: "Email is required" });
     }
 
-    const [rows] = await db.query(
+    const [rows] = await pool.query(
       "SELECT * FROM users WHERE email = ? LIMIT 1",
       [email]
     );
@@ -60,6 +28,5 @@ const getCompanyByEmail = async (req, res) => {
 
 module.exports = {
   getCompanies,
-  getCompanyByEmail, // 👈 THIS MUST EXIST
+  getCompanyByEmail,
 };
-

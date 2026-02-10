@@ -1,4 +1,4 @@
-const db = require('../db');
+const { pool } = require('../db');
 
 async function saveOrdersToDB(orders) {
   console.log('🟡 saveOrdersToDB called with', orders.length, 'orders');
@@ -10,7 +10,7 @@ async function saveOrdersToDB(orders) {
     }
 
     // 1️⃣ Insert / update order
-    await db.query(
+    await pool.query(
       `
       INSERT INTO orders (
         shopify_order_id,
@@ -22,14 +22,16 @@ async function saveOrdersToDB(orders) {
         subtotal,
         tax,
         discounts,
-        total_ex_gst
+        total_ex_gst,
+        kiosk_id
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         customer_name = VALUES(customer_name),
         shopify_customer_id = VALUES(shopify_customer_id),
         status = VALUES(status),
-        total_ex_gst = VALUES(total_ex_gst)
+        total_ex_gst = VALUES(total_ex_gst),
+        kiosk_id = VALUES(kiosk_id)
       `,
       [
         order.id,
@@ -42,15 +44,19 @@ async function saveOrdersToDB(orders) {
         order.tax || 0,
         order.discounts || 0,
         order.total_ex_gst,
+        order.kiosk_id || null,
       ]
     );
 
     // 2️⃣ Insert order items
     for (const item of order.items) {
-      await db.query(
+      await pool.query(
         `
         INSERT INTO order_items (order_id, title, quantity, price)
         VALUES (?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          quantity = VALUES(quantity),
+          price = VALUES(price)
         `,
         [
           order.id,

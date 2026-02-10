@@ -1,7 +1,15 @@
+// src/backend/firebase/admin.js
 const admin = require("firebase-admin");
 
-admin.initializeApp({
-  credential: admin.credential.applicationDefault(),
-});
+let firebaseApp;
 
-module.exports = admin;
+// Only initialize if it hasn't been initialized yet
+if (!admin.apps.length) {
+  firebaseApp = admin.initializeApp({
+    credential: admin.credential.applicationDefault(), // or your service account
+  });
+} else {
+  firebaseApp = admin.app(); // reuse the existing app
+}
+
+module.exports = firebaseApp;

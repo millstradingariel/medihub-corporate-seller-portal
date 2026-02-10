@@ -1,92 +1,67 @@
-const fetch = require('node-fetch');
+// src/backend/services/shopifyService.js
+const { pool } = require("../db");
+const { fetchOrdersFromShopify } = require("../shopify/fetchOrders");
 
-const SHOP = process.env.SHOPIFY_STORE_DOMAIN;
-const TOKEN = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
-const VERSION = process.env.SHOPIFY_API_VERSION || '2024-01';
+async function syncOrdersToMySQL() {
+  const orders = await fetchOrdersFromShopify();
+  let insertedCount = 0;
 
-async function fetchAllOrders() {
-  const allOrders = [];
-  let hasNextPage = true;
-  let cursor = null;
-
-  const query = `
-  query ($first: Int!, $after: String) {
-    orders(first: $first, after: $after, sortKey: CREATED_AT, reverse: true) {
-      pageInfo {
-        hasNextPage
-        endCursor
-      }
-      edges {
-        node {
-          id
-          name
-          createdAt
-          displayFinancialStatus
-
-          customer {
-            id
-            displayName
-          }
-
-          subtotalPriceSet {
-            shopMoney { amount }
-          }
-
-          totalTaxSet {
-            shopMoney { amount }
-          }
-
-          totalDiscountsSet {
-            shopMoney { amount }
-          }
-
-          totalPriceSet {
-            shopMoney { amount }
-          }
-
-          lineItems(first: 100) {
-            edges {
-              node {
-                title
-                quantity
-                originalUnitPriceSet {
-                  shopMoney { amount }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  `;
-
-
-  while (hasNextPage) {
-    const res = await fetch(
-      `https://${SHOP}/admin/api/${VERSION}/graphql.json`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Shopify-Access-Token': TOKEN,
-        },
-        body: JSON.stringify({
-          query,
-          variables: { first: 250, after: cursor },
-        }),
-      }
+  for (const order of orders) {
+    // --- Insert order ---
+    await pool.execute(
+      `INSERT INTO orders 
+        (shopify_order_id, kiosk_id, order_name, order_date, paid_date, shopify_customer_id, customer_name, status, total_ex_gst, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE 
+         order_name = VALUES(order_name),
+         kiosk_id = VALUES(kiosk_id),
+         total_ex_gst = VALUES(total_ex_gst),
+         status = VALUES(status)`,
+      [
+        order.id,
+        order.kiosk_id,
+        order.name,
+        order.createdAt,
+        order.processedAt,
+        order.customer?.id || null,
+        order.customer?.displayName || null,
+        order.displayFinancialStatus,
+        order.subtotalPriceSet.shopMoney.amount, // Order total
+        new Date(),
+      ]
     );
 
-    const json = await res.json();
-    if (json.errors) throw new Error(JSON.stringify(json.errors));
+    insertedCount++;
 
-    allOrders.push(...json.data.orders.edges.map(e => e.node));
-    hasNextPage = json.data.orders.pageInfo.hasNextPage;
-    cursor = json.data.orders.pageInfo.endCursor;
+    // --- Insert order items ---
+    for (const item of order.lineItems) {
+      // Determine correct unit price
+      const price =
+        Number(item.originalUnitPriceSet?.shopMoney?.amount) ||
+        Number(item.priceSet?.shopMoney?.amount) ||
+        Number(item.price) || // fallback for REST API
+        0;
+
+      await pool.execute(
+        `INSERT INTO order_items
+      (order_id, title, sku, quantity, price)
+     VALUES (?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE 
+       quantity = VALUES(quantity),
+       price = VALUES(price)`,
+        [
+          order.id,
+          item.title || null,
+          item.sku || null,
+          item.quantity || 0,
+          price,
+        ]
+      );
+    }
+
   }
 
-  return allOrders;
+  return insertedCount;
 }
 
-module.exports = { fetchAllOrders };
+module.exports = { syncOrdersToMySQL };

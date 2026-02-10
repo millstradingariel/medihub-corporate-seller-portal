@@ -7,5 +7,5 @@ module.exports = sanityClient.createClient({
   projectId: product_sanity_id,
   dataset: prod,
   apiVersion: apiVer,
-  useCdn: true,
+  useCdn: false,
 });

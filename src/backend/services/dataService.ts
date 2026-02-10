@@ -2,7 +2,7 @@ import { MOCK_ORDERS, LOCATIONS, DEVICES, PARTNERS } from '../../../constants';
 import { Order, Location, Device, Partner } from '../../../types';
 
 export const getPartner = (partnerId: string): Partner | undefined => {
-  return PARTNERS.find(p => p.partner_id === partnerId);
+  return PARTNERS.find(p => p.company_id === partnerId);
 };
 
 export const getPartnerLocations = (partnerId: string): Location[] => {

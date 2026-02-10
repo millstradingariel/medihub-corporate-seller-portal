@@ -1,5 +1,6 @@
 const express = require('express');
-const router = express.Router(); // ✅ THIS WAS MISSING
+const router = express.Router();
+const { pool } = require('../db');
 
 const { fetchAllOrders } = require('../services/shopifyService');
 const { saveOrdersToDB } = require('../services/orderService');
@@ -13,39 +14,62 @@ router.get('/dashboard', async (req, res) => {
       o => o.displayFinancialStatus === 'PAID'
     );
 
-    // 🔄 Transform Shopify → internal format
-    const orders = paidOrders.map(order => ({
-      id: order.id,
-      order_name: order.name,
-      order_date: order.createdAt,
-      status: order.displayFinancialStatus,
+    const orders = paidOrders.map(order => {
+      // 🔍 Extract kiosk_id from metafields
+      const kioskField = order.metafields?.edges.find(
+        m => m.node.key === 'kiosk_id'
+      );
 
-      shopify_customer_id: order.customer?.id || null,
-      customer_name: order.customer?.displayName || 'Wews',
+      const kioskId = kioskField ? kioskField.node.value : null;
 
-      total_ex_gst: parseFloat(
-        order.totalPriceSet.shopMoney.amount
-      ),
+      return {
+        id: order.id,
+        order_name: order.name,
+        order_date: order.createdAt,
+        status: order.displayFinancialStatus,
 
-      items: order.lineItems.edges.map(i => ({
-        title: i.node.title,
-        quantity: i.node.quantity,
-        price: parseFloat(
-          i.node.originalUnitPriceSet.shopMoney.amount
+        kiosk_id: kioskId,
+
+        shopify_customer_id: order.customer?.id || null,
+        customer_name: order.customer?.displayName,
+
+        total_ex_gst: parseFloat(
+          order.totalPriceSet.shopMoney.amount
         ),
-      })),
-    }));
 
-    // 💾 Save to MySQL
+        items: order.lineItems.edges.map(i => ({
+          title: i.node.title,
+          quantity: i.node.quantity,
+          price: parseFloat(
+            i.node.originalUnitPriceSet.shopMoney.amount
+          ),
+        })),
+      };
+    });
+
+    // 1️⃣ Save to MySQL
     await saveOrdersToDB(orders);
 
-    const lifetimeRevenue = orders.reduce(
-      (sum, o) => sum + o.total_ex_gst,
-      0
-    );
+    // 2️⃣ Read totals from MySQL (source of truth)
+    const [[totals]] = await pool.query(`
+      SELECT
+        COALESCE(SUM(total_ex_gst), 0) AS lifetimeRevenue,
+        COUNT(*) AS totalOrders
+      FROM orders
+      WHERE status = 'PAID'
+    `);
+
+    // 3️⃣ Read orders from MySQL
+    const [rows] = await pool.query(`
+      SELECT * FROM orders
+      WHERE status = 'PAID'
+      ORDER BY order_date DESC
+    `);
+
+    const lifetimeRevenue = parseFloat(totals.lifetimeRevenue);
 
     res.json({
-      orders,
+      orders: rows,
       lifetimeRevenue,
       lifetimeReferralFees: lifetimeRevenue * 0.1,
     });
@@ -55,4 +79,4 @@ router.get('/dashboard', async (req, res) => {
   }
 });
 
-module.exports = router; // ✅ ALSO REQUIRED
+module.exports = router;
