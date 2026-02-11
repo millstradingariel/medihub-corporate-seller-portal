@@ -25,4 +25,4 @@ dist-ssr
 .env
 .env.*
 
-src/backend/.env.*
+src/backend/.env.*src/backend/firebase/*.json
