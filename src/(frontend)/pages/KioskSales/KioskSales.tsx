@@ -30,6 +30,9 @@ interface ProductStat {
   revenue: number;
 }
 
+const API_URL = process.env.REACT_APP_API_URL;
+
+
 /* ================= COMPONENT ================= */
 
 export default function KioskSales({
@@ -55,7 +58,7 @@ export default function KioskSales({
         setError(null);
 
         const res = await fetch(
-          `http://localhost:3001/api/kiosk-analytics?kioskId=${kioskId}`
+          `${API_URL}/api/kiosk-analytics?kioskId=${kioskId}`
         );
         const json = await res.json();
 
