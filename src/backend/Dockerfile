@@ -1,21 +1,17 @@
-# Use Node 20 to satisfy your package requirements
+# Use Node 20 to satisfy modern package requirements
 FROM node:20-slim
 
-# This is where the app lives inside the container
 WORKDIR /app
 
-# 1. Copy package files from the root context into /app
-COPY app/src/backend/package*.json ./
+# Step 1: Copy package files. 
+# Note: We use ./ because the Build Context should be set to the backend folder.
+COPY package*.json ./
 
-# 2. Install dependencies
 RUN npm install
 
-# 3. Copy EVERYTHING from your backend folder into /app
-# This means server.minimal.js will now be at /app/server.minimal.js
-COPY **/src/backend/ ./
-# 4. Expose the Cloud Run port
-EXPOSE 8080
+# Step 2: Copy everything from the current directory (src/backend) into /app
+COPY . .
 
-# 5. The Moment of Truth: Run the file
-# We use server.minimal.js because that is your filename
+# Step 3: Ensure we run the right file
+EXPOSE 8080
 CMD ["node", "server.minimal.js"]
