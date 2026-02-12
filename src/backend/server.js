@@ -2,7 +2,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-const { pool } = require('./db'); // Import Cloud SQL pool
+const { pool } = require('./db');
 
 // Import your routes
 const dashboardRoute = require('./routes/dashboard');
@@ -26,8 +26,47 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Health check route (Cloud Run uses this to check if app is ready)
+app.get('/', (req, res) => {
+  res.json({ status: 'Server is running', timestamp: new Date() });
+});
+
+// DB health check
+app.get('/health', async (req, res) => {
+  if (!pool) {
+    return res.status(500).json({ 
+      status: 'unhealthy', 
+      database: 'not connected',
+      message: 'Database pool not initialized'
+    });
+  }
+
+  try {
+    const [rows] = await pool.query('SELECT 1');
+    res.json({ 
+      status: 'healthy', 
+      database: 'connected',
+      timestamp: new Date()
+    });
+  } catch (err) {
+    console.error('Health check DB error:', err);
+    res.status(500).json({ 
+      status: 'unhealthy', 
+      database: 'error',
+      error: err.message 
+    });
+  }
+});
+
 // Example DB test route
 app.get('/api/test', async (req, res) => {
+  if (!pool) {
+    return res.status(500).json({ 
+      error: 'Database not available',
+      message: 'Check environment variables and Cloud SQL connection'
+    });
+  }
+
   try {
     const [rows] = await pool.query('SELECT NOW() AS currentTime');
     res.json({ success: true, time: rows[0].currentTime });
@@ -55,8 +94,21 @@ app.use('/api/finance', financeRoutes);
 app.use('/api', corporateUsers);
 app.use('/api', passwordchangee);
 
-// Listen on the port provided by Cloud Run or fallback to 8080
-const PORT = process.env._PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`🚀 Backend running on port ${PORT}`);
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Global error:', err);
+  res.status(500).json({ 
+    error: 'Internal server error',
+    message: err.message 
+  });
+});
+
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Environment variables loaded:`);
+  console.log(`- DB_USER: ${process.env.DB_USER ? 'SET' : 'NOT SET'}`);
+  console.log(`- DB_PASSWORD: ${process.env.DB_PASSWORD ? 'SET' : 'NOT SET'}`);
+  console.log(`- DB_NAME: ${process.env.DB_NAME ? 'SET' : 'NOT SET'}`);
+  console.log(`- INSTANCE_CONNECTION_NAME: ${process.env.INSTANCE_CONNECTION_NAME ? process.env.INSTANCE_CONNECTION_NAME : 'NOT SET'}`);
 });
