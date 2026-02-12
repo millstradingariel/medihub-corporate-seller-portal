@@ -1,12 +1,12 @@
-FROM node:18-slim
+FROM node:20-slim
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY backend/package*.json ./
 
 RUN npm install
 
-COPY . .
+COPY backend/
 
 EXPOSE 8080
 

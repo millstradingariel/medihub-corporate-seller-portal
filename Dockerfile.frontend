@@ -1,0 +1,19 @@
+# Stage 1: Build the React/Vue app
+FROM node:20-slim AS build-stage
+WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend/ .
+RUN npm run build
+
+# Stage 2: Serve with Nginx
+FROM nginx:alpine
+# Copy the built files from Stage 1 (usually in 'dist' or 'build' folder)
+COPY --from=build-stage /app/dist /usr/share/nginx/html
+
+# Cloud Run expects traffic on 8080, Nginx defaults to 80
+# We tell Nginx to listen on 8080
+RUN sed -i 's/listen[[:space:]]*80;/listen 8080;/g' /etc/nginx/conf.d/default.conf
+
+EXPOSE 8080
+CMD ["nginx", "-g", "daemon off;"]
