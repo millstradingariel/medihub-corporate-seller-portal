@@ -12,8 +12,7 @@ RUN npm install
 
 # 3. Copy EVERYTHING from your backend folder into /app
 # This means server.minimal.js will now be at /app/server.minimal.js
-COPY app/src/backend/ ./
-
+COPY **/src/backend/ ./
 # 4. Expose the Cloud Run port
 EXPOSE 8080
 
