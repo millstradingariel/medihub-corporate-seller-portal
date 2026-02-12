@@ -11,7 +11,6 @@ interface SidebarProps {
   setIsMobileOpen: (open: boolean) => void;
   partnerName: string;
   currentUser: Partner;
-  currentAdminUser: IUser
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -22,7 +21,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   setIsMobileOpen,
   partnerName,
   currentUser,
-  currentAdminUser,
 }) => {
   const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({});
 

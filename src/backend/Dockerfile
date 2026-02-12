@@ -1,4 +1,3 @@
-# Use Node 20 to satisfy modern package requirements
 FROM node:20-slim
 
 WORKDIR /app
