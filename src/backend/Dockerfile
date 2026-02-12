@@ -14,4 +14,4 @@ COPY . .
 
 # Step 3: Ensure we run the right file
 EXPOSE 8080
-CMD ["node", "server.minimal.js"]
+CMD ["node", "server.js"]
