@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
-const API_URL = "http://localhost:3001";
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
 
 interface PasswordChangeModalProps {
   email: string;

@@ -13,7 +13,7 @@ interface BackendUser {
   role: string | null;
 }
 
-const API_URL = "http://localhost:3001";
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
 
 export default function Login() {
   const [email, setEmail] = useState("");

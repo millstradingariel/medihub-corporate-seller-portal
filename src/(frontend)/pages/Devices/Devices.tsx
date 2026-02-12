@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Cpu, ArrowLeft } from "lucide-react";
 
-const API_URL = "http://localhost:3001";
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
 
 export interface Device {
   _id: string;
