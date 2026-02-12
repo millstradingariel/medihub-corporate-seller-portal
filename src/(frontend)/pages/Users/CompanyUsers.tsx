@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { UserCog, Plus, X, Building2, Mail, Shield, Calendar, Search, Loader2 } from 'lucide-react';
 
-const API_URL = "http://localhost:3001";
+const API_URL = process.env.REACT_APP_API_URL;
 
 interface CompanyUser {
   id: number;

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Building2, DollarSign, TrendingUp, Calendar, Search, Download, Loader2 } from 'lucide-react';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+const API_URL = process.env.REACT_APP_API_URL;
 
 interface CompanyPayout {
     company_id: string;

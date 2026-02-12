@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ArrowLeft, DollarSign, Users as UsersIcon, Package, TrendingUp, Calendar } from 'lucide-react';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+const API_URL = process.env.REACT_APP_API_URL;
 
 interface AccountData {
     totalRevenue: number;

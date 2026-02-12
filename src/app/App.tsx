@@ -9,7 +9,7 @@ import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { auth } from "../(frontend)/firebase/firebase.client";
 import AppRoutes from "./AppRoutes";
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+const API_URL = process.env.REACT_APP_API_URL;
 
 export type Page =
   | "dashboard"
