@@ -1,24 +1,27 @@
 # -------- Build stage --------
 FROM node:20-slim AS build
 
+# Set working directory inside container
 WORKDIR /app
 
-# Copy package.json and package-lock.json first
-COPY package*.json ./
+# Copy only frontend project files
+COPY package*.json vite.config.ts ./          # copy root files first
+COPY app ./app
+COPY index.css ./
+
+# Install dependencies
 RUN npm install
 
-# Copy the rest of frontend files
-COPY . .
-
-# Build the frontend
+# Build frontend
 RUN npm run build
 
 # -------- Production stage --------
 FROM nginx:alpine
 
-# Copy built frontend to nginx
+# Copy build output to Nginx html folder
 COPY --from=build /app/dist /usr/share/nginx/html
 
+# Copy your nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 8080
