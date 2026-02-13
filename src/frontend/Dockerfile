@@ -1,7 +1,7 @@
 # Build stage
 FROM node:20-slim AS build
 
-WORKDIR /app
+WORKDIR /
 
 # Copy everything from src/frontend
 COPY . .
