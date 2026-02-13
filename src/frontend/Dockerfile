@@ -3,23 +3,21 @@ FROM node:20-slim AS build
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files first to leverage Docker cache
 COPY package*.json ./
-
-# Install dependencies
 RUN npm install
 
 # Copy all source files
 COPY . .
 
-# Build the app (outputs to dist/)
+# Build the app
 RUN npm run build
 
 # Production stage
 FROM nginx:alpine
 
-# Copy built files from dist
-COPY --from=build /app/dist/assets /usr/share/nginx/html
+# FIX: Copy the entire dist folder, not just assets
+COPY --from=build /app/dist /usr/share/nginx/html
 
 # Copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
