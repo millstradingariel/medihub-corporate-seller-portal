@@ -5,7 +5,8 @@ FROM node:20-slim AS build
 WORKDIR /app
 
 # Copy only frontend project files
-COPY package*.json vite.config.ts ./          # copy root files first
+# copy root files first
+COPY package*.json vite.config.ts ./
 COPY app ./app
 COPY index.css ./
 
