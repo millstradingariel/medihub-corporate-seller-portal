@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Order } from "../../../../types";
 import { formatCurrency } from "../../../backend/services/dataService";
-import StatCard from "../../../(frontend)/components/StatCard";
+import StatCard from "../../../frontend/components/StatCard";
 import {
   DollarSign,
   ShoppingBag,
