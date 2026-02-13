@@ -3,15 +3,15 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 
 export default defineConfig({
-  root: '.',            // ← Change from 'app' to '.'
+  root: '.',            // ← Change to current directory
   build: {
-    outDir: 'dist',     // ← Change from '../dist' to 'dist'
+    outDir: 'dist',     // ← Output to src/frontend/dist
     emptyOutDir: true,
   },
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, '.'),  // ← Change to '.'
+      '@': path.resolve(__dirname, '.'),
     },
   },
   base: '/',
