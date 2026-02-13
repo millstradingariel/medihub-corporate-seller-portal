@@ -2,11 +2,22 @@ FROM node:20-slim AS build
 
 WORKDIR /app
 
-COPY package*.json vite.config.ts tsconfig*.json ./
+COPY package*.json ./
+COPY vite.config.ts ./
+COPY tsconfig*.json ./
 
 RUN npm install
 
-COPY . .
+COPY index.html ./
+
+COPY app ./app
+COPY components ./components
+COPY pages ./pages
+COPY services ./services
+COPY types ./types
+COPY api ./api
+COPY auth ./auth
+COPY firebase ./firebase
 
 RUN npm run build
 
