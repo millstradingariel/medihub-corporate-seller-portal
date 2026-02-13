@@ -3,19 +3,20 @@ FROM node:20-slim AS build
 
 WORKDIR /app
 
-# Copy only frontend
-COPY src/frontend/package*.json ./
+# Copy package.json and package-lock.json first
+COPY package*.json ./
 RUN npm install
 
-COPY src/frontend ./
+# Copy the rest of frontend files
+COPY . .
 
-# Build
+# Build the frontend
 RUN npm run build
 
 # -------- Production stage --------
 FROM nginx:alpine
 
-# Copy built frontend
+# Copy built frontend to nginx
 COPY --from=build /app/dist /usr/share/nginx/html
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
