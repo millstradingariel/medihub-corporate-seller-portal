@@ -103,9 +103,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-const _PORT = process.env._PORT || 8080;
-app.listen(_PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${_PORT}`);
+const PORT = process.env._PORT || 8080;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
   console.log(`Environment variables loaded:`);
   console.log(`- DB_USER: ${process.env.DB_USER ? 'SET' : 'NOT SET'}`);
   console.log(`- DB_PASSWORD: ${process.env.DB_PASSWORD ? 'SET' : 'NOT SET'}`);
