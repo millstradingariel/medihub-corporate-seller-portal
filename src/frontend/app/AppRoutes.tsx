@@ -1,17 +1,17 @@
 import React from "react";
-import Dashboard from "../frontend/pages/Dashboard/Dashboard";
-import Sales from "../frontend/pages/Sales/Sales";
-import KioskSales from "../frontend/pages/KioskSales/KioskSales";
-import Locations from "../frontend/pages/Locations/Locations";
-import Devices from "../frontend/pages/Devices/Devices";
-import Feedback from "../frontend/pages/Feedback/Feedback";
+import Dashboard from "../pages/Dashboard/Dashboard";
+import Sales from "../pages/Sales/Sales";
+import KioskSales from "../pages/KioskSales/KioskSales";
+import Locations from "../pages/Locations/Locations";
+import Devices from "../pages/Devices/Devices";
+import Feedback from "../pages/Feedback/Feedback";
 // import UserList from "../frontend/pages/Usersss/UserList";
-import Companies from "../frontend/pages/Company/Company"; 
-import Accounts from "../frontend/pages/Finance/Accounts";
-import Payouts from "../frontend/pages/Finance/Payouts";
-import { Partner, Location, Order } from "../../types";
-import CompanyUsers from "../frontend/pages/Users/CompanyUsers";
-import AdminUsers from "../frontend/pages/Users/AdminUsers";
+import Companies from "../pages/Company/Company"; 
+import Accounts from "../pages/Finance/Accounts";
+import Payouts from "../pages/Finance/Payouts";
+import { Partner, Location, Order } from "../../../types";
+import CompanyUsers from "../pages/Users/CompanyUsers";
+import AdminUsers from "../pages/Users/AdminUsers";
 
 type Page =
   | "dashboard"

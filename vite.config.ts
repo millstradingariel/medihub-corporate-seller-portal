@@ -6,7 +6,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
-    root: "src/app", // <-- points to index.html
+    root: 'src/frontend/app', // <-- points to index.html
     build: {
       outDir: "../../dist", // output folder relative to root
       emptyOutDir: true,
