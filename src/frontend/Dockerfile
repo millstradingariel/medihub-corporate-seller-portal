@@ -1,26 +1,20 @@
-# ---------- Build Stage ----------
+# -------- Build stage --------
 FROM node:20-slim AS build
 
 WORKDIR /app
 
-# Copy frontend package files
-COPY package*.json ./
+# Copy ONLY frontend project files
+COPY . .
 
 RUN npm install
-
-# Copy frontend source ONLY
-COPY src/frontend ./src/frontend
-COPY vite.config.ts ./
-
-# Build frontend
 RUN npm run build
 
-
-# ---------- Production Stage ----------
+# -------- Production stage --------
 FROM nginx:alpine
 
-# Copy built files
 COPY --from=build /app/dist /usr/share/nginx/html
+
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 8080
 
