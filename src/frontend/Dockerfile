@@ -3,10 +3,10 @@ FROM node:20-slim AS build
 WORKDIR /app
 
 COPY package*.json vite.config.ts ./
-COPY app ./app
-COPY index.css ./
 
 RUN npm install
+
+COPY app ./app
 
 RUN npm run build
 
