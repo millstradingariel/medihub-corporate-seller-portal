@@ -2,11 +2,11 @@ FROM node:20-slim AS build
 
 WORKDIR /app
 
-COPY package*.json vite.config.ts ./
+COPY package*.json vite.config.ts tsconfig*.json ./
 
 RUN npm install
 
-COPY app ./app
+COPY . .
 
 RUN npm run build
 
