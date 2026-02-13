@@ -1,31 +1,22 @@
-# Stage 1: Build frontend
+# Build stage
 FROM node:20-slim AS build
 
 WORKDIR /app
 
-# Copy frontend source + package.json
+# Copy frontend source
+COPY src/frontend/app ./app
+COPY src/frontend/components ./components
+COPY src/frontend/firebase ./firebase
 COPY package*.json ./
-COPY src/app ./app
-COPY src/frontend ./frontend
 
-# Install dependencies
 RUN npm install
-
-# Build frontend
-WORKDIR /app/app
 RUN npm run build
 
-# Stage 2: Serve static frontend using nginx
+# Production stage
 FROM nginx:alpine
 
-# Remove default nginx website
-RUN rm -rf /usr/share/nginx/html/*
+# Copy built files
+COPY --from=build /app/dist /usr/share/nginx/html
 
-# Copy build output from previous stage
-COPY --from=build /app/app/dist /usr/share/nginx/html
-
-# Expose port
-EXPOSE 8080
-
-# Start nginx
+EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

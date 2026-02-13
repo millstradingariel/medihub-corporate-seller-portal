@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => {
   return {
     root: 'src/frontend/app', // <-- points to index.html
     build: {
-      outDir: "../../dist", // output folder relative to root
+      outDir: "../../../dist", // output folder relative to root
       emptyOutDir: true,
     },
     plugins: [react()],
@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(__dirname, 'src/frontend'),
       }
     },
     server: {
