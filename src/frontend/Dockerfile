@@ -25,7 +25,7 @@ COPY src/backend ./backend
 COPY package*.json ./
 
 # Copy frontend build from previous stage
-COPY --from=frontend-build /app/app/dist ./backend/public
+COPY ..
 
 # Install backend dependencies
 RUN npm install --omit=dev
