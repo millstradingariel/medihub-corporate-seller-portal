@@ -1,12 +1,12 @@
 # Stage 1: Build frontend
-FROM node:20-slim AS frontend-build
+FROM node:20-slim AS build
 
 WORKDIR /app
 
-# Copy only the frontend source
+# Copy frontend source + package.json
+COPY package*.json ./
 COPY src/app ./app
 COPY src/frontend ./frontend
-COPY package*.json ./
 
 # Install dependencies
 RUN npm install
@@ -15,27 +15,17 @@ RUN npm install
 WORKDIR /app/app
 RUN npm run build
 
-# Stage 2: Build backend + serve frontend
-FROM node:20-slim AS final
+# Stage 2: Serve static frontend using nginx
+FROM nginx:alpine
 
-WORKDIR /app
+# Remove default nginx website
+RUN rm -rf /usr/share/nginx/html/*
 
-# Copy backend + package.json
-COPY src/backend ./backend
-COPY package*.json ./
-
-# Copy frontend build from previous stage
-COPY ..
-
-# Install backend dependencies
-RUN npm install --omit=dev
-
-# Set environment variables (you can override in Cloud Run)
-ENV _PORT=8080
+# Copy build output from previous stage
+COPY --from=build /app/app/dist /usr/share/nginx/html
 
 # Expose port
-EXPOSE 8080
+EXPOSE 80
 
-# Start backend
-WORKDIR /app/backend
-CMD ["node", "server.js"]
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
