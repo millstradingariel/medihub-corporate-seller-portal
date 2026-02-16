@@ -48,11 +48,13 @@ router.get('/by-email', async (req, res) => {
     // Check if company user
     const [companyUsers] = await pool.query(`
       SELECT 
+        u.id,
+        u.email,
         cu.role,
         c.company_id,
-        c.company_name,
-        c._id as company_uuid
-      FROM company_users cu
+        c.company_name
+      FROM users u
+      JOIN company_users cu ON u.id = cu.user_id
       JOIN company c ON cu.company_id = c.company_id
       WHERE cu.user_id = ?
     `, [user.id]);
