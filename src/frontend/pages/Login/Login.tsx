@@ -74,7 +74,7 @@ export default function Login() {
           type="email"
           value={email}
           onChange={e => setEmail(e.target.value)}
-          placeholder="Email"
+          placeholder="Emailed"
           className="w-full p-3 rounded-lg bg-zinc-800 text-white border border-zinc-700 focus:outline-none focus:ring-2 focus:ring-white"
           required
         />
