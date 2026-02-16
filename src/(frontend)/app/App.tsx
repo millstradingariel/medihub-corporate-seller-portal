@@ -65,21 +65,29 @@ const App: React.FC = () => {
     try {
       const url = `${API_URL}/api/auth/by-email?email=${encodeURIComponent(email)}`;
       console.log('🔗 Calling API:', url);
-      console.log('🔗 API_URL:', API_URL);
 
       const res = await fetch(url);
       console.log('📡 Response status:', res.status);
-      console.log('📡 Response headers:', res.headers);
 
       if (!res.ok) {
         const errorData = await res.json();
-        console.error("Fetch user error:", errorData);
+        console.error("❌ Fetch user error:", errorData);
         return null;
       }
+
       const json = await res.json();
-      return json.data || null;
+      console.log('📦 Full API response:', json);       // ← Add this
+      console.log('👤 User data:', json.data);          // ← Add this
+      console.log('🏢 Company ID:', json.data?.companyId); // ← Add this
+
+      if (!json.data) {
+        console.error('❌ No data in response!');
+        return null;
+      }
+
+      return json.data;  // Changed from json.data || null
     } catch (err) {
-      console.error("Fetch user exception:", err);
+      console.error("❌ Fetch user exception:", err);
       return null;
     }
   };
@@ -135,6 +143,7 @@ const App: React.FC = () => {
       }
     }
   };
+
   /* ========================= DASHBOARD DATA ========================= */
   useEffect(() => {
     if (!currentUser?.companyId || !token) return;
@@ -164,20 +173,51 @@ const App: React.FC = () => {
 
   /* ========================= LOCATIONS ========================= */
   useEffect(() => {
-    if (!currentUser?.companyId || !token) return;
+    if (!currentUser?.companyId || !token) {
+      console.log('⚠️ Not fetching locations - missing requirements:', {
+        hasCompanyId: !!currentUser?.companyId,
+        hasToken: !!token,
+        companyId: currentUser?.companyId,
+        currentUser: currentUser  // ← Add this to see the full user object
+      });
+      return;
+    }
 
     const fetchLocations = async () => {
       try {
+        console.log('🏢 Starting to fetch locations...');
+        console.log('🔑 Company ID:', currentUser.companyId);
+        console.log('🎫 Token exists:', !!token);
+
         setLocationsLoading(true);
-        const res = await fetch(`${API_URL}/api/locations?companyId=${currentUser.companyId}`, {
+
+        const url = `${API_URL}/api/locationsss?companyId=${currentUser.companyId}`;
+        console.log('🔗 Fetching from:', url);
+
+        const res = await fetch(url, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
+
+        console.log('📡 Locations response status:', res.status);
+        console.log('📡 Locations response ok:', res.ok);
+
         const json = await res.json();
+        console.log('📦 Locations response data:', json);
+        console.log('📍 Locations array:', json.data);
+        console.log('📊 Number of locations:', json.data?.length || 0);
+
         setLocations(json.data || []);
+
+        if (!json.data || json.data.length === 0) {
+          console.warn('⚠️ No locations returned from API');
+        }
+      } catch (err) {
+        console.error('❌ Fetch locations error:', err);
       } finally {
         setLocationsLoading(false);
+        console.log('✅ Locations fetch complete');
       }
     };
 
@@ -263,6 +303,7 @@ const App: React.FC = () => {
       </div>
     );
   }
+
   /* ========================= PASSWORD CHANGE REQUIRED ========================= */
   if (requiresPasswordChange && currentUser) {
     return (
@@ -274,6 +315,7 @@ const App: React.FC = () => {
       </div>
     );
   }
+
   /* ========================= APP ========================= */
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-100">

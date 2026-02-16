@@ -45,7 +45,7 @@ const Locations: React.FC<LocationsProps> = ({
             </div>
 
             <h3 className="mt-4 text-lg font-bold text-white">
-              {loc.location_name}
+              {loc.location_name}  {/* Change from location_name to name */}
             </h3>
 
             <div className="mt-4 space-y-2">

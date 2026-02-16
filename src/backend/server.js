@@ -82,7 +82,7 @@ app.use('/api', analyticsRoute);
 app.use('/api', filterRoutes);
 app.use('/api', protectedRoutes);
 app.use('/api/sanity', sanityRoutes);
-app.use('/api/locations', locationRoutes);
+app.use('/api/locationss', locationRoutes);
 app.use('/api', deviceRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/kiosk-analytics', kioskAnalyticsRouter);

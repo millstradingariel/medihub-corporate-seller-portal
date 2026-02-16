@@ -42,11 +42,13 @@ export interface Company {
 }
 
 export interface Location {
-  _id: string; // Sanity ID
-  location_id: string; // internal
-  partner_id: string; // company_id
+  _id: string;
+  location_id: string;
   location_name: string;
-  attio_location_id: string; // external system ID
+  shipping_address?: string;
+  shipping_city?: string;
+  shipping_postcode?: string;
+  shipping_state?: string;
 }
 
 export interface OrderItem {

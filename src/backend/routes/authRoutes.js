@@ -7,68 +7,79 @@ const { pool } = require("../db");
  * GET /api/auth/by-email?email=
  * This route is called during login, so it should NOT require authentication
  */
-router.get("/by-email", async (req, res) => {
+router.get('/by-email', async (req, res) => {
   try {
     const { email } = req.query;
-
-    if (!email) {
-      return res.status(400).json({ message: "Email is required" });
-    }
-
-    // Get user basic info
-    const [userRows] = await pool.query(
-      `SELECT id, email, firebase_uid, is_active FROM users WHERE email = ?`,
+    
+    console.log('🔍 Looking up user:', email);
+    
+    // Get user
+    const [users] = await pool.query(
+      'SELECT id, firebase_uid, email, is_active FROM users WHERE email = ?',
       [email]
     );
-
-    if (!userRows.length) {
-      return res.status(404).json({ message: "User not found" });
+    
+    if (users.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
     }
-
-    const user = userRows[0];
-
+    
+    const user = users[0];
+    console.log('👤 Found user:', user.id);
+    
     // Check if super admin
-    const [superAdminRows] = await pool.query(
-      `SELECT role FROM super_admin_users WHERE user_id = ?`,
+    const [superAdmins] = await pool.query(
+      'SELECT role FROM super_admin_users WHERE user_id = ?',
       [user.id]
     );
-
-    const isSuperAdmin = superAdminRows.length > 0;
-    const superAdminRole = isSuperAdmin ? superAdminRows[0].role : null;
-
-    // Get company info
-    const [companyRows] = await pool.query(
-      `
-      SELECT  
-        c._id AS companyId,
-        c.company_name AS companyName, 
-        cu.role AS companyRole 
-      FROM company_users cu 
-      JOIN company c ON c._id = cu.company_id 
-      WHERE cu.user_id = ? 
-      `,
-      [user.id]
-    );
-
-    const companyInfo = companyRows.length > 0 ? companyRows[0] : null;
-
-    // Return complete user profile
+    
+    if (superAdmins.length > 0) {
+      console.log('👑 User is super admin');
+      return res.json({
+        data: {
+          id: user.id,
+          email: user.email,
+          is_active: user.is_active,
+          isSuperAdmin: true,
+          superAdminRole: superAdmins[0].role
+        }
+      });
+    }
+    
+    // Check if company user
+    const [companyUsers] = await pool.query(`
+      SELECT 
+        cu.role,
+        c.company_id,
+        c.company_name,
+        c._id as company_uuid
+      FROM company_users cu
+      JOIN company c ON cu.company_id = c._id
+      WHERE cu.user_id = ?
+    `, [user.id]);
+    
+    if (companyUsers.length === 0) {
+      console.log('⚠️ User not associated with any company');
+      return res.status(404).json({ message: 'User not associated with any company' });
+    }
+    
+    const companyUser = companyUsers[0];
+    console.log('🏢 User company:', companyUser.company_name, 'ID:', companyUser.company_id);
+    
     res.json({
       data: {
         id: user.id,
         email: user.email,
-        firebaseUid: user.firebase_uid,
-        is_active: user.is_active,  // ✅ Include active status
-        isSuperAdmin,
-        superAdminRole,
-        companyId: companyInfo?.companyId || null,
-        companyName: companyInfo?.companyName || null,
-        companyRole: companyInfo?.companyRole || null,
+        is_active: user.is_active,
+        isSuperAdmin: false,
+        companyId: companyUser.company_id,      // ← Make sure this exists!
+        companyName: companyUser.company_name,
+        companyRole: companyUser.role
       }
     });
+    
   } catch (err) {
-    console.error("Get user by email error:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
+    console.error('❌ Auth by email error:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
