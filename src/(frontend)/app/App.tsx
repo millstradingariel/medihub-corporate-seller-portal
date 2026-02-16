@@ -63,7 +63,14 @@ const App: React.FC = () => {
   /* ========================= HELPER: Fetch user by email (NO AUTH REQUIRED) ========================= */
   const fetchUserByEmail = async (email: string): Promise<Partner | null> => {
     try {
-      const res = await fetch(`${API_URL}/api/auth/by-email?email=${encodeURIComponent(email)}`);
+      const url = `${API_URL}/api/auth/by-email?email=${encodeURIComponent(email)}`;
+      console.log('🔗 Calling API:', url);
+      console.log('🔗 API_URL:', API_URL);
+
+      const res = await fetch(url);
+      console.log('📡 Response status:', res.status);
+      console.log('📡 Response headers:', res.headers);
+
       if (!res.ok) {
         const errorData = await res.json();
         console.error("Fetch user error:", errorData);
