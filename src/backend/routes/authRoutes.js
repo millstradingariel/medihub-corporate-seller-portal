@@ -53,7 +53,7 @@ router.get('/by-email', async (req, res) => {
         c.company_name,
         c._id as company_uuid
       FROM company_users cu
-      JOIN company c ON cu.company_id = c._id
+      JOIN company c ON cu.company_id = c.company_id
       WHERE cu.user_id = ?
     `, [user.id]);
     
