@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ArrowLeft, DollarSign, Users as UsersIcon, Package, TrendingUp, Calendar } from 'lucide-react';
 
-const API_URL = "http://localhost:3001";
+const API_URL = import.meta.env.VITE_API_URL;
 
 interface AccountData {
     totalRevenue: number;
