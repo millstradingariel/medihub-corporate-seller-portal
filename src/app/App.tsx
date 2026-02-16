@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from "react";
-import Sidebar from "../components/Sidebar";
-import Logo from "../components/Logo";
-import PasswordChangeModal from "../components/PasswordChangeModal";
+import Sidebar from "../frontend/components/Sidebar";
+import Logo from "../frontend/components/Logo";
+import PasswordChangeModal from "../frontend/components/PasswordChangeModal";
 
 import { Loader2 } from "lucide-react";
-import { Partner, Location, Order } from "../../../types";
+import { Partner, Location, Order } from "../../types";
 import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
-import { auth } from "../firebase/firebase.client";
+import { auth } from "../frontend/firebase/firebase.client";
 import AppRoutes from "./AppRoutes";
 
-const API_URL = process.env.REACT_APP_API_URL;
+const API_URL = "http://localhost:3001";
 
 export type Page =
   | "dashboard"
