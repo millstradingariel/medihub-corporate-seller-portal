@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Company } from "../../../../types";
 import { Building2, Calendar, Hash, FileText, Plus, Search, Loader2 } from 'lucide-react';
 
-const API_URL = "http://localhost:3001";
+const API_URL = import.meta.env.VITE_API_URL;
 
 const Companies: React.FC = () => {
   const [companies, setCompanies] = useState<Company[]>([]);

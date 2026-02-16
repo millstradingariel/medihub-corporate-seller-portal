@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, 'src/frontend'), // alias for frontend imports
+        '@': path.resolve(__dirname, 'src/(frontend)'), // alias for frontend imports
       }
     },
     base: '/', // ensures relative paths are correct in production

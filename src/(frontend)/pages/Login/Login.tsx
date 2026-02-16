@@ -29,13 +29,13 @@ export default function Login() {
     try {
       // 1️⃣ Sign in with Firebase
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      
+
       // 2️⃣ Get Firebase ID token
       const idToken = await userCredential.user.getIdToken();
 
       // 3️⃣ Fetch user details from backend (NO AUTH HEADER for this endpoint)
       const res = await fetch(`${API_URL}/api/auth/by-email?email=${encodeURIComponent(email)}`);
-      
+
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.message || "Failed to fetch user data");
@@ -67,9 +67,7 @@ export default function Login() {
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
       <form onSubmit={handleLogin} className="space-y-4 w-full max-w-sm bg-zinc-900 p-6 rounded-xl shadow-md">
         <div className="flex justify-center mb-4">
-          <Logo className="h-10 w-auto" />
         </div>
-
         <input
           type="email"
           value={email}
