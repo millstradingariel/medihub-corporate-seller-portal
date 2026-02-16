@@ -36,9 +36,9 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         setLoading(true);
         setError(null);
 
-        const token = localStorage.getItem('firebaseToken');
+        const token = localStorage.getItem('supabaseToken');
 
-        let url = `${API_URL}/api/dashboard?companyId=${currentUser.companyId}`;
+        let url = `${API_URL}/api/dashboard/seller?companyId=${currentUser.companyId}`;
         if (filterType === 'year') {
           url += `&year=${selectedYear}`;
         } else if (filterType === 'month') {
@@ -154,7 +154,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
               <button
                 onClick={() => setFilterType('all')}
                 className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
-                  filterType === 'all' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                  filterType === 'all' ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
                 }`}
               >
                 All Time
@@ -162,7 +162,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
               <button
                 onClick={() => setFilterType('year')}
                 className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
-                  filterType === 'year' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                  filterType === 'year' ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
                 }`}
               >
                 By Year
@@ -170,7 +170,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
               <button
                 onClick={() => setFilterType('month')}
                 className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
-                  filterType === 'month' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                  filterType === 'month' ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
                 }`}
               >
                 By Month
@@ -182,7 +182,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(Number(e.target.value))}
-                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   {yearOptions.map((year) => (
                     <option key={year} value={year}>{year}</option>
@@ -193,7 +193,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                   <select
                     value={selectedMonth}
                     onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                    className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
                     {monthOptions.map((month) => (
                       <option key={month.value} value={month.value}>{month.label}</option>
@@ -208,7 +208,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         {/* Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <StatCard title="Total Revenue" value={formatCurrency(stats.lifetimeRevenue)} icon={DollarSign} />
-          <StatCard title="Referral Fees (5%)" value={formatCurrency(stats.lifetimeReferralFees)} icon={Calendar} />
+          <StatCard title="Consultation Fees (22.5%)" value={formatCurrency(stats.lifetimeReferralFees)} icon={Calendar} />
           <StatCard title="Total Quantities Sold" value={stats.lifetimeQuantity.toLocaleString()} icon={ShoppingBag} />
           <StatCard title="Average Order Value" value={formatCurrency(stats.lifetimeAOV)} subtitle={`${stats.totalOrders} orders`} icon={TrendingUp} />
         </div>

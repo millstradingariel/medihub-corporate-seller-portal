@@ -1,55 +1,47 @@
 // backend/middlewares/authorize.js
+const { pool } = require('../db');
 
-/**
- * Authorization middleware
- * @param {Object} options - Authorization options
- * @param {string[]} options.companyRoles - Allowed company roles (e.g., ['company_admin', 'staff'])
- * @param {string[]} options.superAdminRoles - Allowed super admin roles (e.g., ['full_access', 'read_only'])
- * @param {boolean} options.allowAnySuperAdmin - If true, any super admin can access (ignores superAdminRoles)
- */
-// backend/middlewares/authorize.js
-module.exports.authorize = (options = {}) => {
-  const {
-    companyRoles = [],
-    superAdminRoles = [],
-    allowAnySuperAdmin = false
-  } = options;
+const authorize = (permission) => {
+    return async (req, res, next) => {
+        try {
+            if (!req.user) {
+                return res.status(401).json({ message: "Unauthorized" });
+            }
 
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
+            // ✅ If no permission required, just check if authenticated
+            if (!permission) return next();
 
-    // ===== SUPER ADMIN CHECK =====
-    if (req.user.isSuperAdmin) {
-      // Allow any super admin regardless of role
-      if (allowAnySuperAdmin) return next();
+            // ✅ Get user's permissions from their role in DB
+            const [permissions] = await pool.query(`
+                SELECT p.name
+                FROM permissions p
+                JOIN role_permissions rp ON p.id = rp.permission_id
+                JOIN users u ON u.role_id = rp.role_id
+                WHERE u.id = ?
+            `, [req.user.id]);
 
-      // Allow only specific super admin roles ('super admin' or 'admin')
-      if (superAdminRoles.length > 0 && superAdminRoles.includes(req.user.superAdminRole)) {
-        return next();
-      }
+            const userPermissions = permissions.map(p => p.name);
+            console.log('🔑 User permissions:', userPermissions);
+            console.log('🔒 Required permission:', permission);
 
-      return res.status(403).json({ 
-        message: "Forbidden - insufficient super admin privileges",
-        yourRole: req.user.superAdminRole,
-        requiredRoles: superAdminRoles
-      });
-    }
+            // ✅ Check if user has the required permission
+            if (!userPermissions.includes(permission)) {
+                return res.status(403).json({
+                    message: "Forbidden - insufficient permissions",
+                    required: permission,
+                    yours: userPermissions
+                });
+            }
 
-    // ===== COMPANY USER CHECK =====
-    if (!req.user.companyRole) {
-      return res.status(403).json({ message: "Forbidden - no company role assigned" });
-    }
+            // ✅ Attach permissions to req.user for use in routes
+            req.user.permissions = userPermissions;
 
-    if (companyRoles.length > 0 && companyRoles.includes(req.user.companyRole)) {
-      return next();
-    }
-
-    return res.status(403).json({ 
-      message: "Forbidden - insufficient permissions",
-      yourRole: req.user.companyRole,
-      requiredRoles: companyRoles
-    });
-  };
+            next();
+        } catch (err) {
+            console.error('❌ Authorize error:', err);
+            res.status(500).json({ message: 'Authorization failed' });
+        }
+    };
 };
+
+module.exports = { authorize };

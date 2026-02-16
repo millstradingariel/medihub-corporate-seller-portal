@@ -1,25 +1,19 @@
+// backend/routes/corporateRoutes.js
 const express = require("express");
 const router = express.Router();
 const { pool } = require("../db");
 const { authenticate } = require("../middlewares/authenticate");
 const { authorize } = require("../middlewares/authorize");
 
-// Company Dashboard (existing route - for individual companies)
-router.get("/dashboard", authenticate, async (req, res) => {
-  // ... your existing company dashboard code
-});
-
-// Corporate Dashboard (NEW - for super admins to see all companies)
-router.get("/corporate-dashboard",
+router.get(
+  "/corporate-dashboard",
   authenticate,
-  authorize({ allowAnySuperAdmin: true }),
+  authorize('view_corporate_dashboard'), 
   async (req, res) => {
     try {
       const { year, month } = req.query;
-
       console.log('📊 Corporate dashboard request:', { year, month });
 
-      // Build date filter
       let dateFilter = '';
       const queryParams = [];
 
@@ -31,7 +25,7 @@ router.get("/corporate-dashboard",
         queryParams.push(year);
       }
 
-      // Get all orders across all companies
+      // Orders across all companies
       const [orders] = await pool.query(`
         SELECT 
           o.shopify_order_id,
@@ -48,8 +42,6 @@ router.get("/corporate-dashboard",
         WHERE 1=1${dateFilter}
       `, queryParams);
 
-      console.log('📦 Found', orders.length, 'total orders');
-
       if (!orders.length) {
         return res.json({
           totalRevenue: 0,
@@ -61,7 +53,7 @@ router.get("/corporate-dashboard",
         });
       }
 
-      // Get order items for unit count
+      // Order items for units
       const orderIds = orders.map(o => o.shopify_order_id);
       const placeholders = orderIds.map(() => '?').join(',');
 
@@ -71,51 +63,32 @@ router.get("/corporate-dashboard",
         WHERE order_id IN (${placeholders})
       `, orderIds);
 
-      // Calculate totals
+      // Totals
       const totalRevenue = orders.reduce((sum, o) => sum + Number(o.total_ex_gst || 0), 0);
-      const totalReferralFees = totalRevenue * 0.05;
+      const totalReferralFees = totalRevenue * 0.225;
       const totalOrders = orders.length;
-      const totalUnitsSold = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+      const totalUnitsSold = items.reduce((sum, i) => sum + Number(i.quantity || 0), 0);
       const totalCustomers = new Set(orders.map(o => o.shopify_customer_id).filter(Boolean)).size;
 
       // Company breakdown
       const companyMap = {};
       const itemsByOrderId = {};
-
       items.forEach(item => {
-        if (!itemsByOrderId[item.order_id]) {
-          itemsByOrderId[item.order_id] = 0;
-        }
+        if (!itemsByOrderId[item.order_id]) itemsByOrderId[item.order_id] = 0;
         itemsByOrderId[item.order_id] += Number(item.quantity || 0);
       });
 
       orders.forEach(order => {
         const { company_id, company_name, total_ex_gst, shopify_order_id } = order;
-
         if (!companyMap[company_id]) {
-          companyMap[company_id] = {
-            company_id,
-            company_name,
-            revenue: 0,
-            orders: 0,
-            units_sold: 0
-          };
+          companyMap[company_id] = { company_id, company_name, revenue: 0, orders: 0, units_sold: 0 };
         }
-
         companyMap[company_id].revenue += Number(total_ex_gst || 0);
         companyMap[company_id].orders += 1;
         companyMap[company_id].units_sold += itemsByOrderId[shopify_order_id] || 0;
       });
 
       const companyStats = Object.values(companyMap).sort((a, b) => b.revenue - a.revenue);
-
-      console.log('✅ Corporate metrics calculated:', {
-        totalRevenue,
-        totalOrders,
-        totalUnitsSold,
-        totalCustomers,
-        companies: companyStats.length
-      });
 
       res.json({
         totalRevenue,
@@ -125,11 +98,11 @@ router.get("/corporate-dashboard",
         totalCustomers,
         companyStats
       });
-
     } catch (err) {
       console.error("❌ Corporate dashboard error:", err);
       res.status(500).json({ error: "Server error", message: err.message });
     }
-});
+  }
+);
 
 module.exports = router;

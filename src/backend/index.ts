@@ -1,5 +1,5 @@
 import express from "express";
-import dashboardRoute from "./routes/dashboard";
+import dashboardRoute from "./routes/dashboard1";
 import dotenv from "dotenv";
 
 dotenv.config();

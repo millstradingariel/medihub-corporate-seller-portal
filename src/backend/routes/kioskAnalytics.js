@@ -41,14 +41,12 @@ router.get("/kiosk-analytics", authenticate, async (req, res) => {
       `SELECT
         shopify_order_id,
         order_date,
-        shopify_customer_id,
-        total_ex_gst
-      FROM orders
-      WHERE kiosk_id = ?${dateFilter}
-      ORDER BY order_date DESC`,
+        shopify_customer_id
+    FROM orders
+    WHERE kiosk_id = ? AND status = 'Paid'${dateFilter}
+    ORDER BY order_date DESC`,
       queryParams
     );
-
     console.log('📦 Found', orders.length, 'orders for kiosk');
 
     if (!orders.length) {
@@ -79,13 +77,13 @@ router.get("/kiosk-analytics", authenticate, async (req, res) => {
 
     /* ================= METRICS ================= */
 
-    const revenue = orders.reduce(
-      (sum, o) => sum + Number(o.total_ex_gst || 0),
+    const revenue = items.reduce(
+      (sum, item) => sum + (Number(item.price) * Number(item.quantity)),
       0
     );
 
     // Example: 5% referral fee
-    const referralFees = revenue * 0.05;
+    const referralFees = revenue * 0.225;
 
     const customers = new Set(
       orders
@@ -148,8 +146,8 @@ router.get("/kiosk-analytics", authenticate, async (req, res) => {
   } catch (err) {
     console.error("❌ Error fetching kiosk analytics:", err);
     console.error("❌ Error stack:", err.stack);
-    res.status(500).json({ 
-      error: "Server error", 
+    res.status(500).json({
+      error: "Server error",
       message: err.message,
       kioskId: kioskId
     });

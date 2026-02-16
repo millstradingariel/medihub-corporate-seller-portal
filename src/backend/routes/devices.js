@@ -4,42 +4,50 @@ const client = require("../config/sanityClient");
 const { pool } = require("../db");
 const { authenticate } = require("../middlewares/authenticate");
 
-// ✅ CHANGED: Renamed from /devices to /sync-devices
+// ✅ Sync all devices from Sanity
 router.get("/sync-devices", async (req, res) => {
     try {
+        console.log('🔄 Syncing devices from Sanity...');
+
         const devices = await client.fetch(`
-      *[_type == "device"]{
-        _id,
-        deviceId,
-        internalId,
-        model,
-        deviceType
-      }
-    `);
+        *[_type == "device" && deviceType == "Kiosk"]{
+            _id,
+            deviceId,
+            internalId,
+            model,
+            deviceType
+        }
+        `);
+
+        console.log('📦 Found', devices.length, 'devices in Sanity');
 
         let count = 0;
 
         for (const device of devices) {
-            await pool.query(
-                `INSERT INTO devices
-                  (sanity_id, device_id, internal_id, model, device_type)
-                 VALUES (?, ?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE
-                   device_id = VALUES(device_id),
-                   internal_id = VALUES(internal_id),
-                   model = VALUES(model),
-                   device_type = VALUES(device_type)`,
-                [
-                    device._id,
-                    device.deviceId,
-                    device.internalId || null,
-                    device.model || null,
-                    Array.isArray(device.deviceType)
-                        ? device.deviceType.join(",")
-                        : device.deviceType || null,
-                ]
-            );
-            count++;
+            try {
+                await pool.query(
+                    `INSERT INTO devices
+                      (sanity_id, device_id, internal_id, model, device_type)
+                     VALUES (?, ?, ?, ?, ?)
+                     ON DUPLICATE KEY UPDATE
+                       device_id = VALUES(device_id),
+                       internal_id = VALUES(internal_id),
+                       model = VALUES(model),
+                       device_type = VALUES(device_type)`,
+                    [
+                        device._id,
+                        device.deviceId,
+                        device.internalId || null,
+                        device.model || null,
+                        Array.isArray(device.deviceType)
+                            ? device.deviceType.join(",")
+                            : device.deviceType || null,
+                    ]
+                );
+                count++;
+            } catch (insertErr) {
+                console.error('⚠️ Failed to sync device', device._id, ':', insertErr);
+            }
         }
 
         res.json({
@@ -48,12 +56,15 @@ router.get("/sync-devices", async (req, res) => {
             count,
         });
     } catch (err) {
-        console.error("Device sync failed:", err);
-        res.status(500).json({ message: "Failed to sync devices" });
+        console.error("❌ Device sync failed:", err);
+        res.status(500).json({
+            message: "Failed to sync devices",
+            details: err.message
+        });
     }
 });
 
-// ✅ NEW: Get devices for a specific location (filtered)
+// ✅ Get devices for a specific location
 router.get("/devices", authenticate, async (req, res) => {
     try {
         const { locationId } = req.query;
@@ -64,19 +75,23 @@ router.get("/devices", authenticate, async (req, res) => {
             return res.status(400).json({ error: 'locationId is required' });
         }
 
-        // Get location's sanity_id from location_id
+        // ✅ FIXED: Query by id (MongoDB _id), not location_id
         const [locations] = await pool.query(
-            'SELECT sanity_id, name FROM locations WHERE location_id = ?',
+            'SELECT sanity_id, name FROM locations WHERE id = ?',
             [locationId]
         );
 
         if (locations.length === 0) {
-            console.log('⚠️ Location not found for location_id:', locationId);
-            return res.json({ data: [] });
+            console.log('⚠️ Location not found for id:', locationId);
+            return res.json({
+                message: "Location not found",
+                data: []
+            });
         }
 
         const locationSanityId = locations[0].sanity_id;
-        console.log('🔍 Location sanity_id:', locationSanityId);
+        const locationName = locations[0].name;
+        console.log('🔍 Location sanity_id:', locationSanityId, 'Name:', locationName);
 
         // Get devices for this location
         const [rows] = await pool.query(`
@@ -88,7 +103,7 @@ router.get("/devices", authenticate, async (req, res) => {
                 d.device_type AS deviceType
             FROM devices d
             INNER JOIN location_devices ld ON d.sanity_id = ld.device_sanity_ref
-            WHERE ld.location_sanity_id = ?
+            WHERE ld.location_sanity_id = ? AND d.device_type = "kiosk"
         `, [locationSanityId]);
 
         console.log('📦 Found', rows.length, 'device(s) for location');
@@ -96,14 +111,137 @@ router.get("/devices", authenticate, async (req, res) => {
         // Parse deviceType to array
         const devices = rows.map(device => ({
             ...device,
-            deviceType: device.deviceType ? device.deviceType.split(',').map(t => t.trim()) : []
+            deviceType: device.deviceType
+                ? device.deviceType.split(',').map(t => t.trim())
+                : []
         }));
 
-        res.json({ data: devices });
+        res.json({
+            message: "Devices fetched successfully",
+            data: devices,
+            count: devices.length,
+            location: locationName
+        });
 
     } catch (err) {
         console.error('❌ Fetch devices error:', err);
-        res.status(500).json({ error: 'Failed to fetch devices', details: err.message });
+        res.status(500).json({
+            error: 'Failed to fetch devices',
+            details: err.message
+        });
+    }
+});
+
+// ✅ NEW: Sync devices to locations from Sanity
+router.get("/sync-location-devices", async (req, res) => {
+    try {
+        console.log('🔄 Syncing device-location relationships from Sanity...');
+
+        // ✅ MISSING: Fetch locations from Sanity
+        const locations = await client.fetch(`
+            *[_type == "location"]{
+                _id,
+                name,
+                "devices": devices[]
+            }
+        `);
+
+        console.log('📦 Found', locations.length, 'locations in Sanity');
+
+        // ✅ MISSING: Initialize counters
+        let syncedCount = 0;
+        let failedCount = 0;
+
+        for (const location of locations) {
+            console.log('🏢 Processing location:', location._id);
+
+            if (!location.devices || location.devices.length === 0) {
+                console.log('  ⚠️ Location has no devices');
+                continue;
+            }
+
+            console.log('  📱 Found', location.devices.length, 'devices');
+
+            for (const device of location.devices) {
+                try {
+                    console.log('  📍 Device ref:', device._ref);
+
+                    // Fetch device details from Sanity
+                    const deviceData = await client.fetch(`*[_id == "${device._ref}"][0]{
+                        _id,
+                        deviceId,
+                        deviceType
+                    }`);
+
+                    if (!deviceData) {
+                        console.warn('  ⚠️ Device not found:', device._ref);
+                        failedCount++;
+                        continue;
+                    }
+
+                    // Process deviceType
+                    let deviceType = null;
+                    if (deviceData.deviceType) {
+                        if (Array.isArray(deviceData.deviceType)) {
+                            deviceType = deviceData.deviceType.join(",");
+                        } else {
+                            deviceType = deviceData.deviceType;
+                        }
+                    }
+
+                    console.log('  Data to insert:', {
+                        location_sanity_id: location._id,
+                        device_sanity_ref: device._ref,
+                        device_key: device._key,
+                        device_type: deviceType
+                    });
+
+                    // ✅ CORRECT INSERT
+                    const [result] = await pool.query(
+                        `INSERT INTO location_devices
+                            (location_sanity_id, device_sanity_ref, device_key, device_type)
+                        VALUES (?, ?, ?, ?)
+                        ON DUPLICATE KEY UPDATE
+                            device_key = VALUES(device_key),
+                            device_type = VALUES(device_type),
+                            created_at = NOW()`,
+                        [
+                            location._id,
+                            device._ref,
+                            device._key || null,
+                            deviceType
+                        ]
+                    );
+
+                    console.log('  ✅ Inserted');
+                    syncedCount++;
+
+                } catch (err) {
+                    console.error('  ❌ Error:', err.message);
+                    failedCount++;
+                }
+            }
+        }
+
+        // ✅ MISSING: Final response
+        console.log('\n✅ Location-device sync completed');
+        console.log('   Synced:', syncedCount);
+        console.log('   Failed:', failedCount);
+
+        res.json({
+            message: "Location-device relationships synced successfully",
+            synced: syncedCount,
+            failed: failedCount,
+            total: locations.length
+        });
+
+    } catch (err) {
+        // ✅ MISSING: Error handling
+        console.error("❌ Sync failed:", err);
+        res.status(500).json({
+            message: "Failed to sync location-devices",
+            details: err.message
+        });
     }
 });
 

@@ -11,47 +11,54 @@ interface CompanyPayout {
     total_orders: number;
 }
 
-type DateFilter = 'this_month' | 'last_month' | 'ytd' | 'all_time';
+type DateFilter = 'all_time' | 'by_year' | 'by_month';
 
 const Payouts: React.FC = () => {
     const [payouts, setPayouts] = useState<CompanyPayout[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [dateFilter, setDateFilter] = useState<DateFilter>('this_month');
-
-    const dateFilterOptions = [
-        { value: 'this_month', label: 'This Month' },
-        { value: 'last_month', label: 'Last Month' },
-        { value: 'ytd', label: 'Year to Date' },
-        { value: 'all_time', label: 'All Time' },
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({ length: 5 }, (_, i) => currentYear - i); // last 5 years
+    const months = [
+        { value: 1, label: 'January' }, { value: 2, label: 'February' },
+        { value: 3, label: 'March' }, { value: 4, label: 'April' },
+        { value: 5, label: 'May' }, { value: 6, label: 'June' },
+        { value: 7, label: 'July' }, { value: 8, label: 'August' },
+        { value: 9, label: 'September' }, { value: 10, label: 'October' },
+        { value: 11, label: 'November' }, { value: 12, label: 'December' },
     ];
+    const [dateFilter, setDateFilter] = useState<DateFilter>('all_time');
+    const [selectedYear, setSelectedYear] = useState(currentYear);
+    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, dateFilter, selectedYear, selectedMonth]);
 
     useEffect(() => {
         const fetchPayouts = async () => {
             try {
                 setLoading(true);
-                const token = localStorage.getItem("firebaseToken");
+                const token = localStorage.getItem('supabaseToken');
 
-                if (!token) {
-                    setError("No authentication token found");
-                    return;
+                const params = new URLSearchParams({ filter: dateFilter });
+                if (dateFilter === 'by_year' || dateFilter === 'by_month') {
+                    params.append('year', String(selectedYear));
+                }
+                if (dateFilter === 'by_month') {
+                    params.append('month', String(selectedMonth));
                 }
 
-                const res = await fetch(`${API_URL}/api/finance/payouts?filter=${dateFilter}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
+                const res = await fetch(`${API_URL}/api/finance/payouts?${params.toString()}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
-
-                if (!res.ok) {
-                    throw new Error(`HTTP error! status: ${res.status}`);
-                }
 
                 const json = await res.json();
                 setPayouts(json.data || []);
             } catch (err: any) {
-                console.error("Failed to fetch payouts:", err);
                 setError(err.message || "Failed to load payouts");
             } finally {
                 setLoading(false);
@@ -59,11 +66,19 @@ const Payouts: React.FC = () => {
         };
 
         fetchPayouts();
-    }, [dateFilter]);
+    }, [dateFilter, selectedYear, selectedMonth]);
 
-    const filteredPayouts = payouts.filter(p =>
-        p.company_name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredPayouts = payouts.filter(p => {
+        const matchesSearch = p.company_name.toLowerCase().includes(searchQuery.toLowerCase());
+
+        // date filtering will be done per order in future
+        // for now backend already aggregates — just return all
+        return matchesSearch;
+    });
+
+    const totalPages = Math.ceil(filteredPayouts.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const currentPayouts = filteredPayouts.slice(startIndex, startIndex + itemsPerPage)
 
     // ✅ FIX: force numbers before summing
     const totalSales = filteredPayouts.reduce(
@@ -75,30 +90,6 @@ const Payouts: React.FC = () => {
         (sum, p) => sum + Number(p.referral_fees || 0),
         0
     );
-
-    const handleExport = () => {
-        // Create CSV content
-        const headers = ['Company Name', 'Total Sales', 'Referral Fees (22.5%)', 'Orders'];
-        const rows = filteredPayouts.map(p => [
-            p.company_name,
-            `$${p.total_sales.toFixed(2)}`,
-            `$${p.referral_fees.toFixed(2)}`,
-            p.total_orders
-        ]);
-
-        const csvContent = [
-            headers.join(','),
-            ...rows.map(row => row.join(','))
-        ].join('\n');
-
-        // Download
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `payouts-${dateFilter}-${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-    };
 
     if (loading) {
         return (
@@ -126,42 +117,57 @@ const Payouts: React.FC = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div className="min-w-0">
                         <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white flex items-center gap-2 sm:gap-3">
-                            <DollarSign className="text-green-500 flex-shrink-0" size={24} />
-                            <span className="truncate">Company Payouts</span>
+                            <DollarSign className="text-indigo-500 flex-shrink-0" size={24} />
+                            <span className="truncate">Payouts</span>
                         </h1>
                         <p className="text-xs sm:text-sm text-zinc-400 mt-1 line-clamp-2">
-                            Track sales and referral fees across all companies
+                            Track sales and consultation fees across all companies
                         </p>
                     </div>
-                    {/* Uncomment if needed
-                    <button
-                        onClick={handleExport}
-                        className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm whitespace-nowrap"
-                    >
-                        <Download size={18} />
-                        <span className="hidden sm:inline">Export CSV</span>
-                        <span className="sm:hidden">Export</span>
-                    </button>
-                    */}
                 </div>
 
                 {/* Filters Bar */}
                 <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 sm:p-4">
-                    <div className="flex flex-col gap-3 sm:gap-4">
-                        {/* Date Filter */}
-                        <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="flex flex-col gap-3">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                             <Calendar size={18} className="text-zinc-400 flex-shrink-0" />
+
+                            {/* Filter Type */}
                             <select
                                 value={dateFilter}
-                                onChange={(e) => setDateFilter(e.target.value as DateFilter)}
-                                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                onChange={(e) => { setDateFilter(e.target.value as DateFilter); setCurrentPage(1); }}
+                                className="px-3 py-2 text-sm bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                                {dateFilterOptions.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                        {option.label}
-                                    </option>
-                                ))}
+                                <option value="all_time">All Time</option>
+                                <option value="by_year">By Year</option>
+                                <option value="by_month">By Month & Year</option>
                             </select>
+
+                            {/* Year Selector — show for by_year and by_month */}
+                            {(dateFilter === 'by_year' || dateFilter === 'by_month') && (
+                                <select
+                                    value={selectedYear}
+                                    onChange={(e) => { setSelectedYear(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="px-3 py-2 text-sm bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    {years.map(y => (
+                                        <option key={y} value={y}>{y}</option>
+                                    ))}
+                                </select>
+                            )}
+
+                            {/* Month Selector — show only for by_month */}
+                            {dateFilter === 'by_month' && (
+                                <select
+                                    value={selectedMonth}
+                                    onChange={(e) => { setSelectedMonth(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="px-3 py-2 text-sm bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    {months.map(m => (
+                                        <option key={m.value} value={m.value}>{m.label}</option>
+                                    ))}
+                                </select>
+                            )}
                         </div>
 
                         {/* Search */}
@@ -183,8 +189,8 @@ const Payouts: React.FC = () => {
                     {/* Total Companies */}
                     <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 sm:p-6">
                         <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                            <div className="p-2 sm:p-3 bg-blue-500/20 rounded-lg flex-shrink-0">
-                                <Building2 className="text-blue-500" size={20} />
+                            <div className="p-2 sm:p-3 bg-indigo-500/20 rounded-lg flex-shrink-0">
+                                <Building2 className="text-indigo-500" size={20} />
                             </div>
                         </div>
                         <p className="text-zinc-400 text-xs sm:text-sm mb-1">Total Companies</p>
@@ -194,8 +200,8 @@ const Payouts: React.FC = () => {
                     {/* Total Sales */}
                     <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 sm:p-6">
                         <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                            <div className="p-2 sm:p-3 bg-green-500/20 rounded-lg flex-shrink-0">
-                                <DollarSign className="text-green-500" size={20} />
+                            <div className="p-2 sm:p-3 bg-indigo-500/20 rounded-lg flex-shrink-0">
+                                <DollarSign className="text-indigo-500" size={20} />
                             </div>
                         </div>
                         <p className="text-zinc-400 text-xs sm:text-sm mb-1">Total Sales</p>
@@ -207,11 +213,11 @@ const Payouts: React.FC = () => {
                     {/* Total Referral Fees */}
                     <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 sm:p-6 sm:col-span-2 lg:col-span-1">
                         <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                            <div className="p-2 sm:p-3 bg-purple-500/20 rounded-lg flex-shrink-0">
-                                <TrendingUp className="text-purple-500" size={20} />
+                            <div className="p-2 sm:p-3 bg-indigo-500/20 rounded-lg flex-shrink-0">
+                                <TrendingUp className="text-indigo-500" size={20} />
                             </div>
                         </div>
-                        <p className="text-zinc-400 text-xs sm:text-sm mb-1">Total Referral Fees (22.5%)</p>
+                        <p className="text-zinc-400 text-xs sm:text-sm mb-1">Total Consultation Fees (22.5%)</p>
                         <p className="text-xl sm:text-2xl md:text-3xl font-bold text-white break-all">
                             ${totalReferralFees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
@@ -248,14 +254,14 @@ const Payouts: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-800">
-                                {filteredPayouts.length === 0 ? (
+                                {currentPayouts.length === 0 ? (
                                     <tr>
                                         <td colSpan={4} className="p-6 sm:p-8 text-center text-sm text-zinc-500">
                                             No payouts data found
                                         </td>
                                     </tr>
                                 ) : (
-                                    filteredPayouts.map((payout) => (
+                                    currentPayouts.map((payout) => (
                                         <tr key={payout.company_id} className="hover:bg-zinc-800/50 transition-colors">
                                             <td className="p-3 lg:p-4">
                                                 <div className="flex items-center gap-2 lg:gap-3 min-w-0">
@@ -269,16 +275,16 @@ const Payouts: React.FC = () => {
                                             </td>
                                             <td className="p-3 lg:p-4 text-right">
                                                 <span className="text-white font-mono text-sm lg:text-lg">
-                                                    ${payout.total_sales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    ${Number(payout.total_sales).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </span>
                                             </td>
                                             <td className="p-3 lg:p-4 text-right">
-                                                <span className="text-green-400 font-mono text-sm lg:text-lg font-semibold">
-                                                    ${payout.referral_fees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                <span className="text-white font-mono text-sm lg:text-lg font-semibold">
+                                                    ${Number(payout.referral_fees).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </span>
                                             </td>
                                             <td className="p-3 lg:p-4 text-center">
-                                                <span className="inline-flex items-center px-2 lg:px-3 py-1 rounded-full text-xs lg:text-sm font-medium bg-blue-500/20 text-blue-400">
+                                                <span className="inline-flex items-center px-2 lg:px-3 py-1 rounded-full text-xs lg:text-sm font-medium bg-indigo-500/20 text-indigo-400">
                                                     {payout.total_orders}
                                                 </span>
                                             </td>
@@ -292,12 +298,12 @@ const Payouts: React.FC = () => {
 
                 {/* Card View - Mobile (below md) */}
                 <div className="md:hidden space-y-3">
-                    {filteredPayouts.length === 0 ? (
+                    {currentPayouts.length === 0 ? (
                         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-8 text-center text-sm text-zinc-500">
                             No payouts data found
                         </div>
                     ) : (
-                        filteredPayouts.map((payout) => (
+                        currentPayouts.map((payout) => (
                             <div
                                 key={payout.company_id}
                                 className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 space-y-3"
@@ -326,7 +332,7 @@ const Payouts: React.FC = () => {
                                             <p className="text-xs text-zinc-400">Total Sales</p>
                                         </div>
                                         <p className="text-lg font-mono font-semibold text-white break-all">
-                                            ${payout.total_sales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            ${Number(payout.total_sales).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </p>
                                     </div>
 
@@ -337,8 +343,7 @@ const Payouts: React.FC = () => {
                                             <p className="text-xs text-zinc-400">Fees (22.5%)</p>
                                         </div>
                                         <p className="text-lg font-mono font-semibold text-green-400 break-all">
-                                            ${payout.referral_fees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                        </p>
+                                            ${Number(payout.referral_fees).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -347,9 +352,48 @@ const Payouts: React.FC = () => {
                 </div>
 
                 {/* Footer */}
-                {filteredPayouts.length > 0 && (
-                    <div className="text-xs sm:text-sm text-zinc-400 text-center py-2">
-                        Showing {filteredPayouts.length} {filteredPayouts.length === 1 ? 'company' : 'companies'}
+                {filteredPayouts.length > itemsPerPage && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-zinc-400">
+                        <p>
+                            Showing <span className="text-white font-medium">{startIndex + 1}</span> to{' '}
+                            <span className="text-white font-medium">{Math.min(startIndex + itemsPerPage, filteredPayouts.length)}</span> of{' '}
+                            <span className="text-white font-medium">{filteredPayouts.length}</span> companies
+                        </p>
+                        {totalPages > 1 && (
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-zinc-800 transition-colors"
+                                >
+                                    Previous
+                                </button>
+                                <div className="flex items-center gap-1">
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                                        const showPage = page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1);
+                                        const showEllipsis = (page === currentPage - 2 && currentPage > 3) || (page === currentPage + 2 && currentPage < totalPages - 2);
+                                        if (showEllipsis) return <span key={page} className="px-2 text-zinc-600">...</span>;
+                                        if (!showPage) return null;
+                                        return (
+                                            <button
+                                                key={page}
+                                                onClick={() => setCurrentPage(page)}
+                                                className={`w-10 h-10 rounded-lg transition-colors ${currentPage === page ? 'bg-blue-600 text-white' : 'bg-zinc-900 border border-zinc-800 text-white hover:bg-zinc-800'}`}
+                                            >
+                                                {page}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-zinc-800 transition-colors"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

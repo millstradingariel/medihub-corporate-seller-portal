@@ -3,57 +3,56 @@ const router = express.Router();
 const { pool } = require('../db');
 const { authenticate } = require("../middlewares/authenticate");
 const { authorize } = require("../middlewares/authorize");
-const { admin } = require('../middlewares/verifyToken');
+const { supabase } = require("../middlewares/verifyToken");
+const { auditLogger } = require('../services/auditLogger');
 
 /* ========== COMPANY USERS ========== */
 
 // GET /api/company-users
-router.get("/company-users",
+router.get(
+  "/company-users",
   authenticate,
-  authorize({
-    allowAnySuperAdmin: true,
-    companyRoles: ['company super admin', 'company admin']
-  }),
+  authorize("view_company_users"),
   async (req, res) => {
     try {
-      const isSuperAdmin = req.user?.isSuperAdmin;
+      const isCorporateUser = req.user.roleType === "corporate";
+      const { companyId } = req.query; // ✅ get from query param
+
       let users;
 
-      if (isSuperAdmin) {
-        // Super admins see ALL company users
-        [users] = await pool.query(`
+      if (isCorporateUser && !companyId) {
+        // 🔹 Corporate user NOT impersonating → see ALL company users
+        const [rows] = await pool.query(`
           SELECT 
-            u.id, 
-            u.name,
-            u.email, 
-            u.role,
-            u.created_at,
-            c.company_id, 
-            c.company_name
+            u.id, u.name, u.email, u.role_id, u.created_at, u.is_active,
+            r.name AS role_name, r.display_name AS role_display_name,
+            c.company_id, c.company_name
           FROM users u
-          JOIN company_users cu ON cu.user_id = u.id
-          JOIN company c ON c.company_id = cu.company_id
-          WHERE u.role IN ('company super admin', 'company admin')
+          LEFT JOIN roles r ON u.role_id = r.id
+          INNER JOIN company_users cu ON cu.user_id = u.id
+          INNER JOIN company c ON c.company_id = cu.company_id
+          WHERE r.role_type = 'company'
           ORDER BY u.created_at DESC
         `);
+        users = rows;
+
       } else {
-        // Company admins see only their company's users
-        [users] = await pool.query(`
+        // 🔹 Company user OR corporate impersonating a company → filter by companyId
+        const targetCompanyId = companyId || req.user.companyId;
+
+        const [rows] = await pool.query(`
           SELECT 
-            u.id, 
-            u.name,
-            u.email, 
-            u.role,
-            u.created_at,
-            c.company_id, 
-            c.company_name
+            u.id, u.name, u.email, u.role_id, u.created_at, u.is_active,
+            r.name AS role_name, r.display_name AS role_display_name,
+            c.company_id, c.company_name
           FROM users u
-          JOIN company_users cu ON cu.user_id = u.id
-          JOIN company c ON c.company_id = cu.company_id
-          WHERE c.company_id = ? 
-            AND u.role IN ('company super admin', 'company admin')
+          LEFT JOIN roles r ON u.role_id = r.id
+          INNER JOIN company_users cu ON cu.user_id = u.id
+          INNER JOIN company c ON c.company_id = cu.company_id
+          WHERE c.company_id = ?
           ORDER BY u.created_at DESC
-        `, [req.user.companyId]);
+        `, [targetCompanyId]);
+        users = rows;
       }
 
       res.json({ data: users });
@@ -61,55 +60,156 @@ router.get("/company-users",
       console.error("Get company users error:", err);
       res.status(500).json({ message: "Server error", error: err.message });
     }
-  });
+  }
+);
 
-// POST /api/company-users
-// POST /api/company-users
-router.post("/company-users",
+router.put(
+  "/company-users/:userId/archive",
   authenticate,
-  authorize({
-    allowAnySuperAdmin: true,
-    companyRoles: ['company super admin']  // ✅ Only 'company super admin' can create
-  }),
+  authorize("edit_user"),
   async (req, res) => {
     try {
-      const { name, email, password, company_id, role } = req.body;
+      const userId = parseInt(req.params.userId);
+      const isCorporateUser = req.user.roleType === "corporate"; // ✅ fix role_type → roleType
+
+      // Validate user ID
+      if (!userId || isNaN(userId)) {
+        return res.status(400).json({
+          message: "Invalid user ID",
+        });
+      }
+
+      const [userRows] = await pool.query(
+        `SELECT u.id, u.name, u.email, cu.company_id 
+         FROM users u
+         INNER JOIN company_users cu ON cu.user_id = u.id
+         WHERE u.id = ?`,
+        [userId]
+      );
+
+      if (userRows.length === 0) {
+        return res.status(404).json({
+          message: "User not found",
+        });
+      }
+
+      const user = userRows[0];
+
+      if (!isCorporateUser && user.company_id !== req.user.companyId) {
+        return res.status(403).json({
+          message: "Unauthorized to archive this user",
+        });
+      }
+
+      const [result] = await pool.query(
+        `UPDATE users 
+         SET is_active = 0
+         WHERE id = ?`,
+        [userId]
+      );
+
+      if (result.affectedRows === 0) {
+        throw new Error("Failed to archive user");
+      }
+
+      await auditLogger({
+        userId: req.user.id,
+        userEmail: req.user.email,
+        userName: req.user.name,
+        roleType: req.user.roleType,
+        roleName: req.user.superAdminRoleDisplay || req.user.companyRoleDisplay,
+        companyId: user.company_id,
+        action: 'ARCHIVE_USER',
+        entityType: 'user',
+        entityId: userId,
+        details: { archivedUser: user.name, email: user.email },
+      });
+
+      console.log(`✅ User archived successfully:`, {
+        userId,
+        email: user.email,
+        archivedBy: req.user.email,
+        timestamp: new Date().toISOString()
+      });
+
+      res.json({
+        message: "User archived successfully",
+        data: {
+          id: userId,
+          name: user.name,
+          email: user.email,
+          is_archived: 1,
+          is_active: 0,
+        },
+      });
+    } catch (err) {
+      console.error("Archive user error:", err);
+      res.status(500).json({
+        message: "Server error",
+        error: err.message,
+      });
+    }
+  }
+);
+
+router.post(
+  "/company-users",
+  authenticate,
+  authorize("view_company_users"),
+  async (req, res) => {
+    try {
+      const { name, email, password, company_id, role_id } = req.body;
 
       console.log('👤 User creating:', req.user.email);
       console.log('🏢 Target company_id:', company_id);
-      console.log('🔐 User role:', req.user.isSuperAdmin ? req.user.superAdminRole : req.user.companyRole);
+      console.log('🔐 User roleType:', req.user.roleType);
 
-      // ✅ Security check: company super admins can only create users for their own company
-      if (!req.user.isSuperAdmin) {
-        // This is a company super admin
-        if (!company_id) {
-          return res.status(400).json({ message: "Company ID is required" });
+      if (!name || !email || !password || !company_id || !role_id) {
+        return res.status(400).json({ message: "All fields are required" });
+      }
+
+      const isCorporateAdmin = req.user.roleType === 'corporate';
+
+      if (isCorporateAdmin) {
+        const [companyRows] = await pool.query(
+          'SELECT company_id FROM company WHERE company_id = ?',
+          [company_id]
+        );
+
+        if (companyRows.length === 0) {
+          return res.status(400).json({
+            message: "Company does not exist"
+          });
         }
-        
+        console.log('✅ Corporate admin can create users for any company');
+      } else {
+        if (!req.user.companyId) {
+          return res.status(400).json({ message: "User company ID is missing" });
+        }
+
         if (String(company_id) !== String(req.user.companyId)) {
-          console.log('❌ Company mismatch:', { 
-            requested: company_id, 
-            userCompany: req.user.companyId 
+          console.log('❌ Company mismatch:', {
+            requested: company_id,
+            userCompany: req.user.companyId
           });
           return res.status(403).json({
             message: "You can only create users for your own company"
           });
         }
-        console.log('✅ Company match verified for company super admin');
-      } else {
-        console.log('✅ Super admin can create users for any company');
+        console.log('✅ Company match verified for company admin');
       }
 
-      // Validate required fields
-      if (!name || !email || !password || !company_id || !role) {
-        return res.status(400).json({ message: "All fields are required" });
-      }
+      // Get role details from database
+      const [roleRows] = await pool.query(
+        'SELECT id, name, display_name FROM roles WHERE id = ?',
+        [role_id]
+      );
 
-      // Validate role
-      const validRoles = ['company super admin', 'company admin'];
-      if (!validRoles.includes(role)) {
+      if (roleRows.length === 0) {
         return res.status(400).json({ message: "Invalid role" });
       }
+
+      const role = roleRows[0];
 
       // Check if user already exists
       const [existingUsers] = await pool.query(
@@ -122,19 +222,27 @@ router.post("/company-users",
         });
       }
 
-      // Create user in Firebase
-      const firebaseUser = await admin.auth().createUser({
+      // ✅ Create user in Supabase
+      const { data: supabaseUser, error: supabaseError } = await supabase.auth.admin.createUser({
         email,
         password,
-        emailVerified: false
+        email_confirm: true  // auto-confirm email
       });
 
-      console.log('✅ Firebase user created:', firebaseUser.uid);
+      if (supabaseError) {
+        console.error('❌ Supabase user creation error:', supabaseError);
+        if (supabaseError.message.includes('already been registered')) {
+          return res.status(400).json({ message: "Email already exists" });
+        }
+        return res.status(500).json({ message: "Failed to create user" });
+      }
+
+      console.log('✅ Supabase user created:', supabaseUser.user.id);
 
       // Insert into users table
       const [userResult] = await pool.query(
-        'INSERT INTO users (firebase_uid, email, name, role, is_active, created_at) VALUES (?, ?, ?, ?, 0, NOW())',
-        [firebaseUser.uid, email, name, role]
+        'INSERT INTO users (supabase_uid, name, email, role_id, is_active, created_at) VALUES (?, ?, ?, ?, 1, NOW())',
+        [supabaseUser.user.id, name, email, role_id]
       );
 
       const userId = userResult.insertId;
@@ -145,114 +253,495 @@ router.post("/company-users",
         [userId, company_id]
       );
 
-      console.log('✅ User created successfully:', { 
-        userId, 
-        email, 
-        company_id, 
-        role 
+      console.log('✅ User created successfully:', {
+        userId,
+        email,
+        name,
+        company_id,
+        role_id,
+        createdBy: req.user.email
+      });
+
+      // Fetch the created user with all details
+      const [createdUser] = await pool.query(
+        `SELECT 
+          u.id,
+          u.name,
+          u.email,
+          u.role_id,
+          u.created_at,
+          r.name AS role_name,
+          r.display_name AS role_display_name,
+          c.company_id,
+          c.company_name
+        FROM users u
+        LEFT JOIN roles r ON u.role_id = r.id
+        INNER JOIN company_users cu ON cu.user_id = u.id
+        INNER JOIN company c ON c.company_id = cu.company_id
+        WHERE u.id = ?`,
+        [userId]
+      );
+
+      await auditLogger({
+        userId: req.user.id,
+        userEmail: req.user.email,
+        userName: req.user.name,
+        roleName: req.user.superAdminRoleDisplay || req.user.companyRoleDisplay,
+        companyId: company_id,
+        action: 'CREATE_USER',
+        entityType: 'user',
+        entityId: userId,
+        details: { name, email, role_id },
       });
 
       res.json({
         message: "User created successfully",
-        data: { id: userId, email, name, company_id, role }
+        data: createdUser[0]
       });
 
     } catch (err) {
       console.error("❌ Create company user error:", err);
-      if (err.code === 'auth/email-already-exists') {
-        return res.status(400).json({
-          message: "Email already exists in Firebase"
-        });
-      }
+
       res.status(500).json({
         message: "Server error",
         error: err.message
       });
     }
-});
+  }
+);
+
+router.put(
+  "/company-users/:userId",
+  authenticate,
+  authorize("edit_user"),
+  async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const { name, role_id } = req.body;
+      const isCorporateUser = req.user.roleType === "corporate";
+      // 1️⃣ Validation
+      if (!userId || isNaN(userId)) {
+        return res.status(400).json({
+          message: "Invalid user ID"
+        });
+      }
+
+      if (!name || !role_id) {
+        return res.status(400).json({
+          message: "Name and role_id are required"
+        });
+      }
+
+      // ✅ Optional: Validate name length
+      if (name.trim().length < 2) {
+        return res.status(400).json({
+          message: "Name must be at least 2 characters"
+        });
+      }
+
+      // 2️⃣ Get user to verify existence and company
+      const [userRows] = await pool.query(
+        `SELECT u.id, u.name, u.email, cu.company_id 
+         FROM users u
+         INNER JOIN company_users cu ON cu.user_id = u.id
+         WHERE u.id = ?`,  // ✅ Check not archived
+        [userId]
+      );
+
+      if (userRows.length === 0) {
+        return res.status(404).json({
+          message: "User not found"
+        });
+      }
+
+      const user = userRows[0];
+
+      // 3️⃣ Authorization check: Can only edit users in own company (unless corporate)
+      if (!isCorporateUser && user.company_id !== req.user.companyId) {
+        return res.status(403).json({
+          message: "Unauthorized to edit this user"
+        });
+      }
+
+      // 4️⃣ Verify role exists and is company type
+      const [roleRows] = await pool.query(
+        'SELECT id, name, display_name, role_type FROM roles WHERE id = ?',
+        [role_id]
+      );
+
+      if (roleRows.length === 0) {
+        return res.status(400).json({
+          message: "Invalid role"
+        });
+      }
+
+      if (roleRows[0].role_type !== 'company') {
+        return res.status(400).json({
+          message: "Role must be a company role"
+        });
+      }
+
+      const role = roleRows[0];
+
+      // 5️⃣ Update user in database
+      const [result] = await pool.query(
+        'UPDATE users SET name = ?, role_id = ? WHERE id = ?',
+        [name.trim(), role_id, userId]  // ✅ Trim whitespace
+      );
+
+      // ✅ Check if update was successful
+      if (result.affectedRows === 0) {
+        return res.status(404).json({
+          message: "User not found"
+        });
+      }
+
+      console.log('✅ Company user updated:', {
+        userId,
+        name: name.trim(),
+        role_id,
+        oldRole: userRows[0].name,
+        updatedBy: req.user.email,
+        timestamp: new Date().toISOString()
+      });
+
+      // 6️⃣ Fetch updated user with all details
+      const [updatedUser] = await pool.query(
+        `SELECT 
+          u.id,
+          u.name,
+          u.email,
+          u.role_id,
+          u.is_active,
+          u.created_at,
+          r.name AS role_name,
+          r.display_name AS role_display_name,
+          c.company_id,
+          c.company_name
+        FROM users u
+        LEFT JOIN roles r ON u.role_id = r.id
+        INNER JOIN company_users cu ON cu.user_id = u.id
+        INNER JOIN company c ON c.company_id = cu.company_id
+        WHERE u.id = ?`,
+        [userId]
+      );
+
+      if (updatedUser.length === 0) {
+        // This shouldn't happen, but safety check
+        return res.status(500).json({
+          message: "User updated but failed to retrieve updated data"
+        });
+      }
+
+      await auditLogger({
+        userId: req.user.id,
+        userEmail: req.user.email,
+        userName: req.user.name,
+        roleType: req.user.roleType,
+        roleName: req.user.superAdminRoleDisplay || req.user.companyRoleDisplay,
+        companyId: updatedUser[0].company_id,
+        action: 'EDIT_USER',
+        entityType: 'user',
+        entityId: userId,
+        details: { name: name.trim(), newRole: role.display_name },
+
+      });
+
+      res.json({
+        message: "User updated successfully",
+        data: updatedUser[0]
+      });
+
+    } catch (err) {
+      console.error("Update company user error:", err);
+      res.status(500).json({
+        message: "Server error",
+        error: err.message
+      });
+    }
+  }
+);
 
 /* ========== SUPER ADMIN USERS ========== */
 
 // GET /api/super-admin-users
-router.get("/super-admin-users",
+router.get('/super-admin-users',
   authenticate,
-  authorize({ allowAnySuperAdmin: true }),
+  authorize('view_admin_users'),  // ✅ Simple permission check
   async (req, res) => {
     try {
-      // ✅ Only select users with super admin or admin role
       const [users] = await pool.query(`
         SELECT 
-          id, 
-          name, 
-          email, 
-          role, 
-          is_active, 
-          created_at
-        FROM users
-        WHERE role IN ('super admin', 'admin')
-        ORDER BY created_at DESC
+          u.id,
+          u.name,
+          u.email,
+          u.role_id,
+          r.name AS role_name,
+          r.display_name AS role_display_name,
+          u.is_active,
+          u.created_at
+        FROM users u
+        LEFT JOIN roles r ON u.role_id = r.id
+        WHERE r.role_type = 'corporate'
+        ORDER BY u.created_at DESC
       `);
 
       console.log('👑 Found', users.length, 'super admin users');
-      res.json({ data: users });
+      res.json({ success: true, data: users });
     } catch (err) {
-      console.error("Get admin users error:", err);
-      res.status(500).json({ message: "Server error", error: err.message });
+      console.error('Get admin users error:', err);
+      res.status(500).json({ success: false, message: 'Server error', error: err.message });
     }
-  });
+  }
+);
+
 
 // POST /api/super-admin-users
-router.post("/super-admin-users",
+router.post(
+  '/super-admin-users',
   authenticate,
-  authorize({
-    allowAnySuperAdmin: false,
-    superAdminRoles: ['super admin']
-  }),
+  authorize('create_user'),
   async (req, res) => {
     try {
-      const { email, password, name, role } = req.body;
+      const { email, password, name, role_id } = req.body;
 
-      if (!email || !password || !name || !role) {
-        return res.status(400).json({ message: "All fields are required" });
+      if (!email || !password || !name || !role_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'All fields are required'
+        });
       }
 
-      const validAdminRoles = ['super admin', 'admin'];
-      if (!validAdminRoles.includes(role)) {
-        return res.status(400).json({ message: "Invalid role" });
+      const [roleRows] = await pool.query(
+        'SELECT name, display_name, role_type FROM roles WHERE id = ?',
+        [role_id]
+      );
+
+      if (roleRows.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid role selected'
+        });
+      }
+
+      const role = roleRows[0];
+
+      if (role.role_type !== 'corporate') {
+        return res.status(400).json({
+          success: false,
+          message: 'Role must be a corporate role'
+        });
       }
 
       const [existingUsers] = await pool.query(
         'SELECT id FROM users WHERE email = ?',
         [email]
       );
+
       if (existingUsers.length > 0) {
-        return res.status(400).json({ message: "User with this email already exists" });
+        return res.status(400).json({
+          success: false,
+          message: 'User with this email already exists'
+        });
       }
 
-      const firebaseUser = await admin.auth().createUser({
+      // ✅ FIXED HERE
+      const { data: supabaseUser, error: supabaseError } = await supabase.auth.admin.createUser({
         email,
         password,
-        emailVerified: false
+        email_confirm: true
       });
 
-      // Insert into users table WITH name and role
-      await pool.query(
-        'INSERT INTO users (firebase_uid, email, name, role, is_active, created_at) VALUES (?, ?, ?, ?, 0, NOW())',
-        [firebaseUser.uid, email, name, role]
+      if (supabaseError) {
+        console.error('❌ Supabase user creation error:', supabaseError);
+        if (supabaseError.message.includes('already been registered')) {
+          return res.status(400).json({ success: false, message: 'Email already exists' });
+        }
+        return res.status(500).json({ success: false, message: 'Failed to create user' });
+      }
+
+      const [result] = await pool.query(
+        `INSERT INTO users 
+         (supabase_uid, email, name, role_id, is_active, created_at) 
+         VALUES (?, ?, ?, ?, TRUE, NOW())`,
+        [supabaseUser.user.id, email, name, role_id]
       );
 
-      res.json({
-        message: "User created successfully",
-        data: { email, name, role }
+      console.log('🔍 req.user:', {
+        id: req.user.id,
+        email: req.user.email,
+        roleType: req.user.roleType,
+        superAdminRoleDisplay: req.user.superAdminRoleDisplay,
+        roleName: req.user.superAdminRoleDisplay || req.user.companyRoleDisplay,
+      });
+
+      await auditLogger({
+        userId: req.user.id,
+        userEmail: req.user.email,
+        userName: req.user.name,
+        roleType: req.user.roleType,
+        roleName: req.user.superAdminRoleDisplay || req.user.companyRoleDisplay,
+        action: 'CREATE_USER',
+        entityType: 'user',
+        entityId: result.insertId,
+        details: { name, email, role: role.display_name },
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'User created successfully',
+        data: {
+          id: result.insertId,
+          email,
+          name,
+          role_id,
+          role_name: role.name,
+          role_display_name: role.display_name
+        }
       });
 
     } catch (err) {
-      console.error("Create admin user error:", err);
-      if (err.code === 'auth/email-already-exists') {
-        return res.status(400).json({ message: "Email already exists in Firebase" });
-      }
-      res.status(500).json({ message: "Server error", error: err.message });
-    }
-  });
 
+      res.status(500).json({
+        success: false,
+        message: 'Server error',
+        error: err.message
+      });
+    }
+  }
+);
+
+router.put('/super-admin-users/:id',
+  authenticate,
+  authorize('edit_user'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, role_id, is_active } = req.body;
+
+      if (!name || !role_id || !is_active) {
+        return res.status(400).json({ success: false, message: 'All fields are required' });
+      }
+
+      // Get user
+      const [users] = await pool.query(
+        'SELECT supabase_uid, email, name, is_active FROM users WHERE id = ?', // ✅ supabase_uid
+        [id]
+      );
+
+      if (users.length === 0) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+
+      const user = users[0];
+
+      // Verify role
+      const [roleRows] = await pool.query(
+        'SELECT role_type, display_name FROM roles WHERE id = ?',
+        [role_id]
+      );
+
+      if (roleRows.length === 0 || roleRows[0].role_type !== 'corporate') {
+        return res.status(400).json({ success: false, message: 'Invalid role. Must be a corporate role.' });
+      }
+
+      // Update DB
+      await pool.query('UPDATE users SET name = ?, role_id = ?, is_active = ? WHERE id = ?', [name, role_id, is_active, id]);
+
+      await auditLogger({
+        userId: req.user.id,
+        userEmail: req.user.email,
+        userName: req.user.name,
+        roleType: req.user.roleType,
+        roleName: req.user.superAdminRoleDisplay || req.user.companyRoleDisplay,
+        action: 'EDIT_USER',
+        entityType: 'user',
+        entityId: id,
+        details: { name, role: roleRows[0].display_name, is_active },
+      });
+
+      res.json({ success: true, message: 'User updated successfully' });
+
+    } catch (error) {
+      console.error('Update admin user error:', error);
+      res.status(500).json({ success: false, message: 'Failed to update user', error: error.message });
+    }
+  }
+);
+
+router.put('/super-admin-users/:id/archive',
+  authenticate,
+  authorize('edit_user'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Check if user exists
+      const [users] = await pool.query(
+        'SELECT id, supabase_uid, email, name FROM users WHERE id = ?',
+        [id]
+      );
+
+      if (users.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      const user = users[0];
+
+      // Prevent user from archiving themselves
+      if (req.user.id === parseInt(id)) {
+        return res.status(403).json({
+          success: false,
+          message: 'You cannot archive your own account'
+        });
+      }
+
+      // Soft delete: Mark as archived
+      await pool.query(
+        'UPDATE users SET is_active = 0 WHERE id = ?',
+        [id]
+      );
+
+      console.log('✅ Super admin user archived:', {
+        userId: id,
+        email: user.email,
+        archivedBy: req.user.email
+      });
+
+      await auditLogger({
+        userId: req.user.id,
+        userEmail: req.user.email,
+        userName: req.user.name,
+        roleType: req.user.roleType,
+        roleName: req.user.superAdminRoleDisplay || req.user.companyRoleDisplay,
+        action: 'ARCHIVE_USER',
+        entityType: 'user',
+        entityId: id,
+        details: { archivedUser: user.name, email: user.email },
+      });
+
+      res.json({
+        success: true,
+        message: 'User archived successfully',
+        data: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          is_archived: true
+        }
+      });
+
+    } catch (error) {
+      console.error('Archive super admin user error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to archive user',
+        error: error.message
+      });
+    }
+  }
+);
 module.exports = router;

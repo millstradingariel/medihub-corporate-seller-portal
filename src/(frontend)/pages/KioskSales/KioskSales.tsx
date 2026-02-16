@@ -46,6 +46,7 @@ export default function KioskSales({
   const [productsByQuantity, setProductsByQuantity] = useState<ProductStat[]>([]);
   const [productsByRevenue, setProductsByRevenue] = useState<ProductStat[]>([]);
   const [referralFees, setReferralFees] = useState<number>(0);
+  const [revenue, setRevenue] = useState<number>(0);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,8 +67,8 @@ export default function KioskSales({
         setLoading(true);
         setError(null);
 
-        const token = localStorage.getItem('firebaseToken');
-        
+        const token = localStorage.getItem('supabaseToken');
+
         // Build query params
         let url = `${API_URL}/api/kiosk-analytics?kioskId=${kioskId}`;
         if (filterType === 'year') {
@@ -75,7 +76,7 @@ export default function KioskSales({
         } else if (filterType === 'month') {
           url += `&year=${selectedYear}&month=${selectedMonth}`;
         }
-        
+
         console.log('🔗 Fetching from:', url);
 
         const res = await fetch(url, {
@@ -94,6 +95,7 @@ export default function KioskSales({
         console.log('📦 Analytics data:', json);
 
         setOrders(json.orders || []);
+        setRevenue(Number(json.revenue || 0)); // ✅ add this
         setProductsByQuantity(json.productsByQuantity || []);
         setProductsByRevenue(json.productsByRevenue || []);
         setReferralFees(Number(json.referralFees || 0));
@@ -109,15 +111,6 @@ export default function KioskSales({
   }, [kioskId, filterType, selectedYear, selectedMonth]);
 
   /* ================= METRICS ================= */
-
-  const revenue = useMemo(
-    () =>
-      orders.reduce(
-        (sum, o) => sum + Number(o.total_ex_gst || 0),
-        0
-      ),
-    [orders]
-  );
 
   const unitsSold = useMemo(
     () =>
@@ -139,9 +132,9 @@ export default function KioskSales({
   );
 
   const formatCurrency = (n: number) =>
-    new Intl.NumberFormat("en-US", {
+    new Intl.NumberFormat("en-AU", {
       style: "currency",
-      currency: "USD",
+      currency: "AUD",
     }).format(n);
 
   // Generate year options (last 5 years)
@@ -228,31 +221,28 @@ export default function KioskSales({
           <div className="flex gap-2">
             <button
               onClick={() => setFilterType('all')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filterType === 'all'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filterType === 'all'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                }`}
             >
               All Time
             </button>
             <button
               onClick={() => setFilterType('year')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filterType === 'year'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filterType === 'year'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                }`}
             >
               By Year
             </button>
             <button
               onClick={() => setFilterType('month')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filterType === 'month'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filterType === 'month'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                }`}
             >
               By Month
             </button>
@@ -263,7 +253,7 @@ export default function KioskSales({
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               {yearOptions.map((year) => (
                 <option key={year} value={year}>
@@ -278,7 +268,7 @@ export default function KioskSales({
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(Number(e.target.value))}
-              className="px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               {monthOptions.map((month) => (
                 <option key={month.value} value={month.value}>
@@ -294,7 +284,7 @@ export default function KioskSales({
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Stat title="Revenue" value={formatCurrency(revenue)} icon={DollarSign} />
         <Stat
-          title="Referral Fees (5%)"
+          title="Consultation Fees (22.5%)"
           value={formatCurrency(referralFees)}
           icon={Percent}
         />

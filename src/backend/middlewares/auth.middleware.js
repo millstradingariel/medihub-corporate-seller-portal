@@ -1,9 +1,5 @@
-const admin = require("firebase-admin");
+const { supabase } = require('./verifyToken');
 
-/**
- * Verifies Firebase ID token sent from frontend
- * Header: Authorization: Bearer <token>
- */
 const requireAuth = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -12,12 +8,17 @@ const requireAuth = async (req, res, next) => {
       return res.status(401).json({ message: "Missing auth token" });
     }
 
-    const idToken = authHeader.split("Bearer ")[1];
+    const token = authHeader.split("Bearer ")[1];
 
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    // ✅ Verify with Supabase
+    const { data: { user }, error } = await supabase.auth.getUser(token);
 
-    // attach user info to request
-    req.user = decodedToken;
+    if (error || !user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // ✅ Attach user info to request
+    req.user = user;
 
     next();
   } catch (err) {

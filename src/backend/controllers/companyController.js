@@ -1,12 +1,9 @@
 const { pool } = require("../db");
 
-/* GET all companies */
 const getCompanies = async (req, res) => {
   const [rows] = await pool.query("SELECT * FROM company");
   res.json({ success: true, data: rows });
 };
-
-/* GET company by email */
 const getCompanyByEmail = async (req, res) => {
   try {
     const { email } = req.query;

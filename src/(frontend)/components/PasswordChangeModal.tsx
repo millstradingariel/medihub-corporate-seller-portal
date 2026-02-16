@@ -22,7 +22,6 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ email, onPass
     e.preventDefault();
     setError(null);
 
-    // Validation
     if (newPassword.length < 6) {
       setError('New password must be at least 6 characters');
       return;
@@ -41,8 +40,8 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ email, onPass
     setLoading(true);
 
     try {
-      const token = localStorage.getItem("firebaseToken");
-      
+      const token = localStorage.getItem("supabaseToken"); // ✅ was firebaseToken
+
       const res = await fetch(`${API_URL}/api/change-password`, {
         method: 'POST',
         headers: {
@@ -51,8 +50,7 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ email, onPass
         },
         body: JSON.stringify({
           email,
-          currentPassword,
-          newPassword
+          newPassword // ✅ removed currentPassword
         })
       });
 
@@ -61,7 +59,6 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ email, onPass
         throw new Error(errorData.message || 'Failed to change password');
       }
 
-      // Success - call the callback
       onPasswordChanged();
     } catch (err: any) {
       setError(err.message || 'Failed to change password');
@@ -76,8 +73,8 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ email, onPass
         {/* Header */}
         <div className="p-6 border-b border-zinc-800">
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-blue-500/20 rounded-lg">
-              <Lock className="text-blue-500" size={24} />
+            <div className="p-2 bg-indigo-500/20 rounded-lg">
+              <Lock className="text-indigo-500" size={24} />
             </div>
             <h2 className="text-2xl font-bold text-white">Change Password</h2>
           </div>
@@ -99,7 +96,7 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ email, onPass
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder="Enter current password"
-                className="w-full px-4 py-3 pr-12 bg-zinc-950 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 pr-12 bg-zinc-950 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               />
               <button
@@ -123,7 +120,7 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ email, onPass
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Enter new password (min. 6 characters)"
-                className="w-full px-4 py-3 pr-12 bg-zinc-950 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 pr-12 bg-zinc-950 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
                 minLength={6}
               />
@@ -148,7 +145,7 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ email, onPass
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm new password"
-                className="w-full px-4 py-3 pr-12 bg-zinc-950 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 pr-12 bg-zinc-950 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               />
               <button
@@ -162,9 +159,9 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ email, onPass
           </div>
 
           {/* Password Requirements */}
-          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
-            <p className="text-blue-400 text-sm font-medium mb-2">Password Requirements:</p>
-            <ul className="text-blue-400/80 text-xs space-y-1">
+          <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-lg p-3">
+            <p className="text-indigo-400 text-sm font-medium mb-2">Password Requirements:</p>
+            <ul className="text-indigo-400/80 text-xs space-y-1">
               <li>• At least 6 characters long</li>
               <li>• Different from your current password</li>
               <li>• Both passwords must match</li>
@@ -183,7 +180,7 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ email, onPass
           <button
             type="submit"
             disabled={loading}
-            className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Changing Password...' : 'Change Password'}
           </button>

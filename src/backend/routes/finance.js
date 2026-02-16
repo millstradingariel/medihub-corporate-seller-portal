@@ -5,12 +5,6 @@ const { pool } = require("../db");
 const { authenticate } = require("../middlewares/authenticate");
 const { authorize } = require("../middlewares/authorize");
 
-router.use(authenticate);
-router.use(authorize({ allowAnySuperAdmin: true }));
-
-/**
- * GET /api/finance/account/:companyId
- */
 router.get("/account/:companyId", async (req, res) => {
   try {
     const { companyId } = req.params;
@@ -36,20 +30,21 @@ router.get("/account/:companyId", async (req, res) => {
     }
 
     // 3️⃣ Summary metrics
+    // 3️⃣ Summary metrics
     const summaryQuery = `
-      SELECT
-        COUNT(DISTINCT o.shopify_order_id) AS total_orders,
-        COUNT(DISTINCT o.shopify_customer_id) AS total_customers,
-        COALESCE(SUM(oi.quantity), 0) AS units_sold,
-        COALESCE(SUM(o.total_ex_gst), 0) AS total_revenue
-      FROM orders o
-      LEFT JOIN order_items oi ON oi.order_id = o.shopify_order_id
-      JOIN devices d ON o.kiosk_id = d.internal_id
-      JOIN location_devices ld ON ld.device_sanity_ref = d.sanity_id
-      JOIN company_locations cl ON cl.location_sanity_id = ld.location_sanity_id
-      WHERE cl.company_sanity_id = ?
-        AND o.status = 'Paid'
-        ${dateFilter}
+        SELECT
+            COUNT(DISTINCT o.shopify_order_id) AS total_orders,
+            COUNT(DISTINCT o.shopify_customer_id) AS total_customers,
+            COALESCE(SUM(oi.quantity), 0) AS units_sold,
+            COALESCE(SUM(oi.price * oi.quantity), 0) AS total_revenue
+        FROM orders o
+        LEFT JOIN order_items oi ON oi.order_id = o.shopify_order_id
+        JOIN devices d ON o.kiosk_id = d.internal_id
+        JOIN location_devices ld ON ld.device_sanity_ref = d.sanity_id
+        JOIN company_locations cl ON cl.location_sanity_id = ld.location_sanity_id
+        WHERE cl.company_sanity_id = ?
+            AND o.status = 'Paid'
+            ${dateFilter}
     `;
     const [[summary]] = await pool.query(summaryQuery, [companySanityId, ...dateParams]);
 
@@ -58,31 +53,24 @@ router.get("/account/:companyId", async (req, res) => {
     const commission = Number(summary.total_revenue) * commissionRate;
 
     // 5️⃣ Products by Quantity & proportional Amount
+    // 5️⃣ Products by Quantity & Revenue
     const productsQuery = `
-      SELECT 
+    SELECT 
         oi.title AS product_name,
         SUM(oi.quantity) AS quantity,
-        SUM(oi.quantity / t.total_quantity * t.total_ex_gst) AS amount
-      FROM order_items oi
-      JOIN orders o ON o.shopify_order_id = oi.order_id
-      JOIN (
-          SELECT o.shopify_order_id,
-                 SUM(oi.quantity) AS total_quantity,
-                 o.total_ex_gst
-          FROM orders o
-          JOIN order_items oi ON oi.order_id = o.shopify_order_id
-          JOIN devices d ON o.kiosk_id = d.internal_id
-          JOIN location_devices ld ON ld.device_sanity_ref = d.sanity_id
-          JOIN company_locations cl ON cl.location_sanity_id = ld.location_sanity_id
-          WHERE cl.company_sanity_id = ?
-            AND o.status = 'Paid'
-            ${dateFilter}
-          GROUP BY o.shopify_order_id
-      ) t ON t.shopify_order_id = oi.order_id
-      GROUP BY oi.title
-      ORDER BY quantity DESC
-      LIMIT 10
-    `;
+        SUM(oi.price * oi.quantity) AS amount  -- ✅ from order_items
+    FROM order_items oi
+    JOIN orders o ON o.shopify_order_id = oi.order_id
+    JOIN devices d ON o.kiosk_id = d.internal_id
+    JOIN location_devices ld ON ld.device_sanity_ref = d.sanity_id
+    JOIN company_locations cl ON cl.location_sanity_id = ld.location_sanity_id
+    WHERE cl.company_sanity_id = ?
+        AND o.status = 'Paid'
+        ${dateFilter}
+    GROUP BY oi.title
+    ORDER BY quantity DESC
+    LIMIT 10
+`;
     const [products] = await pool.query(productsQuery, [companySanityId, ...dateParams]);
 
     // 6️⃣ Response
@@ -108,63 +96,45 @@ router.get("/account/:companyId", async (req, res) => {
   }
 });
 
-router.get("/payouts", async (req, res) => {
+router.get('/payouts', authenticate, authorize('view_payouts'), async (req, res) => {
   try {
-    const { filter = 'this_month' } = req.query;
+    const { filter = 'all_time', year, month } = req.query;
 
-    // Build date filter based on selection
+    // ✅ Define dateCondition before using it
     let dateCondition = '';
-    const now = new Date();
-    
-    switch (filter) {
-      case 'this_month':
-        dateCondition = `AND MONTH(o.order_date) = ${now.getMonth() + 1} AND YEAR(o.order_date) = ${now.getFullYear()}`;
-        break;
-      case 'last_month':
-        const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        dateCondition = `AND MONTH(o.order_date) = ${lastMonth.getMonth() + 1} AND YEAR(o.order_date) = ${lastMonth.getFullYear()}`;
-        break;
-      case 'ytd':
-        dateCondition = `AND YEAR(o.order_date) = ${now.getFullYear()}`;
-        break;
-      case 'all_time':
-      default:
-        dateCondition = '';
-        break;
+
+    if (filter === 'by_year' && year) {
+      dateCondition = `AND YEAR(o.order_date) = ${parseInt(year)}`;
+    } else if (filter === 'by_month' && year && month) {
+      dateCondition = `AND YEAR(o.order_date) = ${parseInt(year)} AND MONTH(o.order_date) = ${parseInt(month)}`;
     }
 
     const query = `
       SELECT
-        c._id AS company_id,
-        c.company_name,
-        COUNT(DISTINCT o.shopify_order_id) AS total_orders,
-        COALESCE(SUM(o.total_ex_gst), 0) AS total_sales,
-        COALESCE(SUM(o.total_ex_gst * 0.225), 0) AS referral_fees
+          c._id AS company_id,
+          c.company_name,
+          COUNT(DISTINCT o.shopify_order_id) AS total_orders,
+          COALESCE(SUM(oi.price * oi.quantity), 0) AS total_sales,
+          COALESCE(SUM(oi.price * oi.quantity) * 0.225, 0) AS referral_fees
       FROM company c
-      LEFT JOIN company_locations cl 
-        ON cl.company_sanity_id = c._id
-      LEFT JOIN location_devices ld 
-        ON ld.location_sanity_id = cl.location_sanity_id
-      LEFT JOIN devices d 
-        ON d.sanity_id = ld.device_sanity_ref
-      LEFT JOIN orders o 
-        ON o.kiosk_id = d.internal_id
-        AND o.status = 'Paid'
-        ${dateCondition}
+      LEFT JOIN company_locations cl ON cl.company_sanity_id = c._id
+      LEFT JOIN location_devices ld ON ld.location_sanity_id = cl.location_sanity_id
+      LEFT JOIN devices d ON d.sanity_id = ld.device_sanity_ref
+      LEFT JOIN orders o ON o.kiosk_id = d.internal_id
+          AND o.status = 'Paid'
+          ${dateCondition}
+      LEFT JOIN order_items oi ON oi.order_id = o.shopify_order_id
       GROUP BY c._id, c.company_name
-      HAVING total_sales > 0
+      HAVING SUM(oi.price * oi.quantity) > 0
       ORDER BY total_sales DESC
-    `;
+      `;
 
     const [payouts] = await pool.query(query);
+    res.json({ data: payouts });
 
-    res.json({
-      data: payouts
-    });
   } catch (err) {
-    console.error("Payouts error:", err);
+    console.log('💰 Payouts data:', JSON.stringify(payouts, null, 2));
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
-
 module.exports = router;

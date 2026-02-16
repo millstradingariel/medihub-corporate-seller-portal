@@ -1,19 +1,25 @@
-// src/backend/routes/password-change.js
 const express = require("express");
 const router = express.Router();
-const admin = require("../firebase/admin"); // your admin.js
 const { pool } = require("../db");
-const { authenticate } = require("../middlewares/authenticate");
+const { supabase } = require("../middlewares/verifyToken");
 
-/**
- * POST /api/auth/change-password
- * Change password for first-time login
- */
-router.post("/change-password", authenticate, async (req, res) => {
+router.post("/change-password", async (req, res) => {
   try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const token = authHeader.split('Bearer ')[1];
+    const { data: { user: supabaseUser }, error } = await supabase.auth.getUser(token);
+    if (error || !supabaseUser) {
+      return res.status(401).json({ message: 'Invalid or expired token' });
+    }
+
     const { email, newPassword } = req.body;
 
-    // 1️⃣ Validate inputs
+    console.log('🔄 Password change requested for:', email);
+
     if (!email || !newPassword) {
       return res.status(400).json({ message: "Email and new password are required" });
     }
@@ -22,29 +28,50 @@ router.post("/change-password", authenticate, async (req, res) => {
       return res.status(400).json({ message: "New password must be at least 6 characters" });
     }
 
-    // 2️⃣ Update password in Firebase
-    let userRecord;
-    try {
-      userRecord = await admin.auth().getUserByEmail(email);
-      await admin.auth().updateUser(userRecord.uid, { password: newPassword });
-    } catch (err) {
-      console.error("Firebase password update error:", err);
-      return res.status(500).json({ message: "Failed to update password in Firebase" });
+    const [userRows] = await pool.query(
+      'SELECT id, is_active, email, supabase_uid FROM users WHERE email = ?',
+      [email]
+    );
+
+    if (userRows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
     }
 
-    // 3️⃣ Update is_active in MySQL
+    const user = userRows[0];
+
+    if (user.is_active !== 2) {
+      return res.status(403).json({
+        message: "Password change only allowed for pending accounts",
+        current_status: user.is_active,
+      });
+    }
+
+    // ✅ Update password in Supabase
     try {
-      await pool.query(
-        "UPDATE users SET is_active = TRUE WHERE email = ?",
-        [email]
+      const { error } = await supabase.auth.admin.updateUserById(
+        user.supabase_uid,
+        { password: newPassword }
       );
+      if (error) throw error;
+      console.log('✅ Supabase password updated for:', email);
     } catch (err) {
-      console.error("Database update error:", err);
-      return res.status(500).json({ message: "Failed to update user status in database" });
+      console.error("Supabase password update error:", err);
+      return res.status(500).json({ message: "Failed to update password" });
     }
 
-    // 4️⃣ Respond success
-    res.json({ message: "Password changed successfully" });
+    // ✅ Activate user
+    await pool.query(
+      "UPDATE users SET is_active = 1 WHERE email = ?",
+      [email]
+    );
+    console.log('✅ User activated for:', email);
+
+    res.json({
+      success: true,
+      message: "Password changed successfully. You can now login.",
+      data: { email, is_active: 1 }
+    });
+
   } catch (err) {
     console.error("Change password error:", err);
     res.status(500).json({ message: "Server error", error: err.message });

@@ -1,3 +1,6 @@
+/// <reference types="@types/google.maps" />
+
+
 export enum DeviceStatus {
   ACTIVE = "Active",
   INACTIVE = "Inactive",
@@ -21,16 +24,24 @@ export enum OrderStatus {
 export interface Partner {
   id: number;
   email: string;
-  firebaseUid?: string;
+  name: string | null;
+  firebaseUid: string;
+  is_active: number;
+
+    // Role information
+  roleId: number;
+  roleType: 'corporate' | 'company';
+  
+  // Corporate user fields
   isSuperAdmin: boolean;
-  superAdminRole: string | null;
-  companyId: number | null;
-  companyName: string | null;
-  companyRole: string | null;
-  name: string | "Marky";
-  token?: string;
-  is_active: boolean;
-  role: string;
+  superAdminRole?: string;           // e.g., 'super_admin', 'admin', 'viewer'
+  superAdminRoleDisplay?: string;    // e.g., 'Super Administrator', 'Administrator'
+  
+  // Company user fields
+  companyId?: string;
+  companyName?: string;
+  companyRole?: string;              // e.g., 'company_super_admin', 'company_admin'
+  companyRoleDisplay?: string; 
 }
 
 export interface Company {
@@ -113,3 +124,4 @@ export interface IUser {
   role: string | null;
   created_at?: string;
 }
+

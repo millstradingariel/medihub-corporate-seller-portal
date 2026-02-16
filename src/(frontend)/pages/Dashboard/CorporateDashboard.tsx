@@ -25,12 +25,10 @@ const formatCurrency = (n: number) =>
   }).format(n);
 
 const CorporateDashboard: React.FC<CorporateDashboardProps> = ({ currentUser }) => {
-  // Filter states
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
 
-  // Data states
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalReferralFees, setTotalReferralFees] = useState(0);
   const [totalOrders, setTotalOrders] = useState(0);
@@ -48,11 +46,11 @@ const CorporateDashboard: React.FC<CorporateDashboardProps> = ({ currentUser }) 
         setLoading(true);
         setError(null);
 
-        const token = localStorage.getItem('firebaseToken');
+        const token = localStorage.getItem('supabaseToken');
 
-        let url = `${API_URL}/api/corporate-dashboard`;
+        let url = `${API_URL}/api/dashboard/corporate`;
         const params = new URLSearchParams();
-        
+
         if (filterType === 'year') {
           params.append('year', selectedYear.toString());
         } else if (filterType === 'month') {
@@ -147,8 +145,8 @@ const CorporateDashboard: React.FC<CorporateDashboardProps> = ({ currentUser }) 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white flex items-center gap-2 sm:gap-3">
-              <Building2 className="flex-shrink-0 text-blue-500" size={24} />
-              <span className="truncate">Corporate Dashboard</span>
+              <Building2 className="flex-shrink-0 text-indigo-500" size={24} />
+              <span className="truncate">Dashboard</span>
             </h2>
             <p className="text-xs sm:text-sm text-zinc-400 mt-1 line-clamp-1">
               All Companies — {filterLabel}
@@ -168,31 +166,28 @@ const CorporateDashboard: React.FC<CorporateDashboardProps> = ({ currentUser }) 
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setFilterType('all')}
-                className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
-                  filterType === 'all'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                }`}
+                className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${filterType === 'all'
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                  }`}
               >
                 All Time
               </button>
               <button
                 onClick={() => setFilterType('year')}
-                className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
-                  filterType === 'year'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                }`}
+                className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${filterType === 'year'
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                  }`}
               >
                 By Year
               </button>
               <button
                 onClick={() => setFilterType('month')}
-                className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
-                  filterType === 'month'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                }`}
+                className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${filterType === 'month'
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                  }`}
               >
                 By Month
               </button>
@@ -204,7 +199,7 @@ const CorporateDashboard: React.FC<CorporateDashboardProps> = ({ currentUser }) 
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(Number(e.target.value))}
-                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-bg-indigo-500"
                 >
                   {yearOptions.map((year) => (
                     <option key={year} value={year}>{year}</option>
@@ -215,7 +210,7 @@ const CorporateDashboard: React.FC<CorporateDashboardProps> = ({ currentUser }) 
                   <select
                     value={selectedMonth}
                     onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                    className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
                     {monthOptions.map((month) => (
                       <option key={month.value} value={month.value}>{month.label}</option>
@@ -233,26 +228,26 @@ const CorporateDashboard: React.FC<CorporateDashboardProps> = ({ currentUser }) 
             title="Total Revenue"
             value={formatCurrency(totalRevenue)}
             icon={DollarSign}
-            color="blue"
+            color="indigo"
           />
           <StatCard
-            title="Referral Fees (5%)"
+            title="Total Consultation Fees (22.5%)"
             value={formatCurrency(totalReferralFees)}
             icon={Calendar}
-            color="green"
+            color="indigo"
           />
           <StatCard
             title="Total Units Sold"
             value={totalUnitsSold.toLocaleString()}
             icon={ShoppingBag}
-            color="purple"
+            color="indigo"
           />
           <StatCard
             title="Total Customers"
             value={totalCustomers.toLocaleString()}
             subtitle={`${totalOrders} orders`}
             icon={Users}
-            color="orange"
+            color="indigo"
           />
         </div>
 
@@ -277,7 +272,7 @@ const CorporateDashboard: React.FC<CorporateDashboardProps> = ({ currentUser }) 
           <>
             <div className="hidden md:block bg-zinc-900 border border-zinc-800 rounded-lg p-4 sm:p-6">
               <h3 className="text-base sm:text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <Building2 size={18} className="text-blue-500 flex-shrink-0" />
+                <Building2 size={18} className="text-indigo-500 flex-shrink-0" />
                 <span className="truncate">Company Breakdown</span>
               </h3>
               <div className="overflow-x-auto">
@@ -329,7 +324,7 @@ const CorporateDashboard: React.FC<CorporateDashboardProps> = ({ currentUser }) 
             {/* ===== COMPANY BREAKDOWN - Mobile Cards ===== */}
             <div className="md:hidden space-y-3">
               <h3 className="text-base font-semibold text-white flex items-center gap-2 px-1">
-                <Building2 size={18} className="text-blue-500" />
+                <Building2 size={18} className="text-indigo-500" />
                 Company Breakdown
               </h3>
               {companyStats.map((company) => (
@@ -376,15 +371,12 @@ interface StatCardProps {
   value: string | number;
   subtitle?: string;
   icon: any;
-  color?: 'blue' | 'green' | 'purple' | 'orange';
+  color?: 'indigo';
 }
 
-function StatCard({ title, value, subtitle, icon: Icon, color = 'blue' }: StatCardProps) {
+function StatCard({ title, value, subtitle, icon: Icon, color = 'indigo' }: StatCardProps) {
   const colorClasses = {
-    blue: 'from-blue-500 to-blue-600',
-    green: 'from-green-500 to-green-600',
-    purple: 'from-purple-500 to-purple-600',
-    orange: 'from-orange-500 to-orange-600',
+    indigo: 'bg-gradient-to-br from-blue-500 to-purple-600',
   };
 
   return (

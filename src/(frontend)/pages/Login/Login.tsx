@@ -1,16 +1,29 @@
 // frontend/src/pages/auth/Login.tsx
 import { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../firebase/firebase.client";
+import supabase from "../../../../supabase"; // ✅ your supabase.ts client
 import Logo from "../../components/Logo";
 
 interface BackendUser {
   id: number;
   email: string;
+  name: string | null;
+  supabaseUid: string;        // ✅ was firebaseUid
+  is_active: boolean;
   isSuperAdmin: boolean;
-  companyId: number | null;
-  companyName: string | null;
-  role: string | null;
+  
+  // Corporate user fields
+  superAdminRole?: string;
+  superAdminRoleDisplay?: string;
+  
+  // Company user fields
+  companyId?: number;
+  companyName?: string;
+  companyRole?: string;
+  companyRoleDisplay?: string;
+  
+  // Common fields
+  roleId: number;
+  roleType: 'corporate' | 'company';
 }
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -27,13 +40,19 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // 1️⃣ Sign in with Firebase
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // 1️⃣ Sign in with Supabase
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      // 2️⃣ Get Firebase ID token
-      const idToken = await userCredential.user.getIdToken();
+      if (signInError) throw new Error(signInError.message);
 
-      // 3️⃣ Fetch user details from backend (NO AUTH HEADER for this endpoint)
+      // 2️⃣ Get Supabase access token
+      const accessToken = data.session?.access_token;
+      if (!accessToken) throw new Error("No session token received");
+
+      // 3️⃣ Fetch user details from backend
       const res = await fetch(`${API_URL}/api/auth/by-email?email=${encodeURIComponent(email)}`);
 
       if (!res.ok) {
@@ -43,20 +62,26 @@ export default function Login() {
 
       const { data: user }: { data: BackendUser } = await res.json();
 
+      // Check if user is active
+      if (!user.is_active) {
+        throw new Error("Your account is inactive. Please contact support.");
+      }
+
       // 4️⃣ Store user info AND token in local storage
       localStorage.setItem("currentUser", JSON.stringify(user));
-      localStorage.setItem("firebaseToken", idToken);
+      localStorage.setItem("supabaseToken", accessToken); // ✅ was firebaseToken
 
-      // 5️⃣ Redirect based on role
-      if (user.isSuperAdmin) {
-        window.location.href = "/companies"; // super admin page
-      } else if (user.role === "company_admin") {
-        window.location.href = "/dashboard"; // company admin dashboard
+      // 5️⃣ Redirect based on role_type
+      if (user.roleType === 'corporate') {
+        window.location.href = "/companies";
+      } else if (user.roleType === 'company') {
+        window.location.href = "/dashboard";
       } else {
-        window.location.href = "/"; // fallback for staff/viewer
+        window.location.href = "/";
       }
+
     } catch (err: any) {
-      console.error(err);
+      console.error('Login error:', err);
       setError(err.message || "Login failed");
     } finally {
       setLoading(false);
@@ -67,12 +92,14 @@ export default function Login() {
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
       <form onSubmit={handleLogin} className="space-y-4 w-full max-w-sm bg-zinc-900 p-6 rounded-xl shadow-md">
         <div className="flex justify-center mb-4">
+          <Logo />
         </div>
+        
         <input
           type="email"
           value={email}
           onChange={e => setEmail(e.target.value)}
-          placeholder="Emailsssss"
+          placeholder="Email"
           className="w-full p-3 rounded-lg bg-zinc-800 text-white border border-zinc-700 focus:outline-none focus:ring-2 focus:ring-white"
           required
         />
@@ -86,7 +113,11 @@ export default function Login() {
           required
         />
 
-        {error && <div className="text-red-400 text-sm">{error}</div>}
+        {error && (
+          <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
+            {error}
+          </div>
+        )}
 
         <button
           type="submit"

@@ -9,10 +9,14 @@ import Feedback from "../pages/Feedback/Feedback";
 import Companies from "../pages/Company/Company";
 import Accounts from "../pages/Finance/Accounts";
 import Payouts from "../pages/Finance/Payouts";
-import { Partner, Location, Order } from "../../../types";
-import CompanyUsers from "../pages/Users/CompanyUsers";
-import AdminUsers from "../pages/Users/AdminUsers";
+import { Partner, Location, Company } from "../../../types";
+import SellerUsers from "../pages/Users/Seller";
+import CorporateUsers from "../pages/Users/Corporate";
 import Orders from "../pages/Order/Order";
+import ViewOrders from "../pages/Order/ViewOrder";
+import OrdersHistory from "../pages/Order/OrderHistory";
+import Roles from "../pages/Roles/Roles"
+import AuditLogs from "../pages/AuditLogs/AuditLogs"
 
 type Page =
   | "dashboard"
@@ -24,12 +28,16 @@ type Page =
   | "kiosk-sales"
   | "users"
   | "companies"
-  | "company-users"
-  | "admin-users"
+  | "seller-users"
+  | "corporate-users"
   | "paid-orders"
   | "payouts"
-  | "orders"
-  | "accounts";
+  | "create-orders"
+  | "view-orders"
+  | "orders-history"
+  | "accounts"
+  | "audit-logs"
+  | "roles";
 
 interface Props {
   activePage: Page;
@@ -42,6 +50,8 @@ interface Props {
   currentUser: Partner;
   onSelectLocation: (location: Location) => void;
   onBackToLocations: () => void;
+  onViewAs: (company: Company) => void; // ✅ add this
+  originalUser: Partner | null; // ✅ always the real logged-in user
 }
 
 const AppRoutes: React.FC<Props> = ({
@@ -55,39 +65,50 @@ const AppRoutes: React.FC<Props> = ({
   currentUser,
   onSelectLocation,
   onBackToLocations,
+  onViewAs,
+  originalUser,
 }) => {
+  // ✅ DEBUG: Log the selected location
+  if (activePage === "devices" && selectedLocation) {
+    console.log('📍 Devices case - selectedLocation:', {
+      _id: selectedLocation._id,
+      location_id: selectedLocation.location_id,
+      location_name: selectedLocation.location_name
+    });
+  }
+
   switch (activePage) {
     case "dashboard":
-      return currentUser.isSuperAdmin ? (
+      // ✅ If super admin is viewing as a company, show company Dashboard
+      if (originalUser?.roleType === 'corporate' && currentUser?.roleType === 'company') {
+        return <Dashboard currentUser={currentUser} />;
+      }
+      // ✅ Otherwise show based on actual role
+      return originalUser?.roleType === 'corporate' ? (
         <CorporateDashboard currentUser={currentUser} />
       ) : (
         <Dashboard currentUser={currentUser} />
       );
-
     case "locations":
       return <Locations locations={locations} loading={locationsLoading} onSelectLocation={onSelectLocation} />;
-
-    case "orders":
-      return currentUser.companyRole === "company super admin" || currentUser.companyRole === "company admin"? (
-        <Orders />
-      ) : (
-        <div className="text-red-400">Access denied. Super Admins only.</div>
-      );
-
     case "devices":
       return selectedLocation ? (
         <Devices
-          locationId={selectedLocation.location_id}
+          locationId={selectedLocation._id}
           locationName={selectedLocation.location_name}
           onBack={onBackToLocations}
           onSelectKiosk={(kioskId) => {
+            console.log('🎮 Kiosk selected:', kioskId);
             setSelectedKiosk(kioskId);
             setActivePage("kiosk-sales");
           }}
           selectedKiosk={selectedKiosk}
         />
-      ) : null;
-
+      ) : (
+        <div className="text-yellow-400">
+          ⚠️ No location selected. Please select a location from the Locations page.
+        </div>
+      );
     case "kiosk-sales":
       return selectedKiosk ? (
         <KioskSales
@@ -95,55 +116,69 @@ const AppRoutes: React.FC<Props> = ({
           locationName={selectedLocation?.location_name || "Unknown"}
           onBack={() => setActivePage("devices")}
         />
-      ) : null;
-
+      ) : (
+        <div className="text-yellow-400">
+          ⚠️ No kiosk selected. Please select a device from the Devices page.
+        </div>
+      );
     case "feedback":
       return <Feedback partner={currentUser} />;
-
-    case "users":
-    case "company-users":
-      return currentUser.isSuperAdmin || 
-             currentUser.companyRole === "company super admin" || 
-             currentUser.companyRole === "company admin" ? (
-        <CompanyUsers currentUser={currentUser} />  // ✅ Pass currentUser
+    case "seller-users":
+      return originalUser?.roleType === 'corporate' ||
+        currentUser?.companyRole === 'company_super_admin' ||
+        currentUser?.companyRole === 'company_admin' ? (
+        <SellerUsers currentUser={currentUser} />
       ) : (
-        <div className="text-red-400">Access denied. Company Admins only.</div>
-      );
-
-    case "admin-users":
-      return currentUser.isSuperAdmin ? (
-        <AdminUsers />
+        <div className="text-red-400">Access denied. Admins only.</div>
+      )
+    case "corporate-users":
+      return originalUser?.roleType === 'corporate' &&
+        originalUser?.superAdminRole === 'super_admin' ? (
+        <CorporateUsers />
       ) : (
         <div className="text-red-400">Access denied. Super Admins only.</div>
       );
-
     case "companies":
-      return currentUser.isSuperAdmin ? (
-        <Companies />
+      return originalUser?.roleType === 'corporate' ? (
+        <Companies onViewAs={onViewAs} />
       ) : (
-        <div className="text-red-400">Access denied. Super Admins only.</div>
+        <div className="text-red-400">Access denied. Corporate users only.</div>
       );
-
     case "paid-orders":
-      return currentUser.isSuperAdmin ? (
+      return originalUser?.roleType === 'corporate' ? (
         <div className="text-white">Paid Orders Page - Coming Soon</div>
       ) : (
-        <div className="text-red-400">Access denied. Super Admins only.</div>
+        <div className="text-red-400">Access denied. Corporate users only.</div>
       );
-
     case "payouts":
-      return currentUser.isSuperAdmin ? (
+      return originalUser?.roleType === 'corporate' ? (
         <Payouts />
       ) : (
-        <div className="text-red-400">Access denied. Super Admins only.</div>
+        <div className="text-red-400">Access denied. Corporate users only.</div>
       );
-
     case "accounts":
-      return currentUser.isSuperAdmin ? (
+      return originalUser?.roleType === 'corporate' ? (
         <Accounts />
       ) : (
-        <div className="text-red-400">Access denied. Super Admins only.</div>
+        <div className="text-red-400">Access denied. Corporate users only.</div>
       );
+    case "roles":
+      return originalUser?.roleType === 'corporate' ? (
+        <Roles />
+      ) : (
+        <div className="text-red-400">Access denied. Corporate users only.</div>
+      );
+    case "create-orders":
+      return <Orders currentUser={currentUser} />;
+
+    case "view-orders":
+      return <ViewOrders currentUser={currentUser} />;
+
+    case "orders-history":
+      return <OrdersHistory currentUser={currentUser} />;
+
+    case "audit-logs":
+      return <AuditLogs currentUser={currentUser} />;
 
     default:
       return null;

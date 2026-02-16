@@ -9,10 +9,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.99.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.4",
     "express": "^5.2.1",
-    "firebase": "^12.8.0",
     "lucide-react": "^0.554.0",
     "mysql2": "^3.16.1",
     "node-cron": "^4.2.1",
@@ -25,6 +25,7 @@
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/google.maps": "^3.58.1",
     "@types/node": "^22.19.7",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",

@@ -17,7 +17,6 @@ router.get("/orders", async (req, res) => {
              o.order_date,
              o.paid_date,
              o.shopify_customer_id,
-             o.customer_name,
              o.status,
              o.total_ex_gst,
              o.created_at,
@@ -41,7 +40,6 @@ router.get("/orders", async (req, res) => {
           order_date: row.order_date,
           paid_date: row.paid_date,
           shopify_customer_id: row.shopify_customer_id,
-          customer_name: row.customer_name,
           status: row.status,
           total_ex_gst: parseFloat(row.total_ex_gst),
           created_at: row.created_at,
@@ -54,7 +52,6 @@ router.get("/orders", async (req, res) => {
           title: row.item_title,
           sku: row.item_sku,
           quantity: Number(row.item_quantity),
-          // price will be computed later proportionally
           price: 0,
         });
       }
