@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Company } from "../../../../types";
 import { Building2, Calendar, Hash, FileText, Search, Loader2, Eye } from 'lucide-react';
 
-const API_URL = "http://localhost:3001";
+const API_URL = import.meta.env.VITE_API_URL;
 
 interface CompanyAccountsProps {
   onViewAccount: (companyId: string, companyName: string) => void;
