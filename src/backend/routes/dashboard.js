@@ -1,81 +1,101 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { pool } = require('../db');
+const { pool } = require("../db");
+const { authenticate } = require("../middlewares/authenticate");
 
-const { fetchAllOrders } = require('../services/shopifyService');
-const { saveOrdersToDB } = require('../services/orderService');
-
-router.get('/dashboard', async (req, res) => {
+router.get("/dashboard", authenticate, async (req, res) => {
   try {
-    const shopifyOrders = await fetchAllOrders();
-    console.log('🟢 Shopify orders:', shopifyOrders.length);
+    const { companyId } = req.query;
 
-    const paidOrders = shopifyOrders.filter(
-      o => o.displayFinancialStatus === 'PAID'
+    console.log('📊 Fetching dashboard for companyId:', companyId);
+
+    if (!companyId) {
+      return res.status(400).json({ error: "companyId is required" });
+    }
+
+    // 1. Get all orders for this company
+    const [orders] = await pool.query(`
+      SELECT 
+        o.shopify_order_id,
+        o.order_name,
+        o.order_date,
+        o.kiosk_id,
+        o.shopify_customer_id,
+        o.customer_name,
+        o.status,
+        o.total_ex_gst
+      FROM orders o
+      JOIN devices d ON o.kiosk_id = d.internal_id
+      JOIN location_devices ld ON d.sanity_id = ld.device_sanity_ref
+      JOIN locations l ON ld.location_sanity_id = l.sanity_id
+      JOIN company_locations cl ON l.sanity_id = cl.location_sanity_id
+      JOIN company c ON cl.company_sanity_id = c._id
+      WHERE c.company_id = ?
+      ORDER BY o.order_date DESC
+    `, [companyId]);
+
+    console.log('📦 Found', orders.length, 'orders for company');
+
+    if (!orders.length) {
+      return res.json({
+        orders: [],
+        lifetimeRevenue: 0,
+        lifetimeReferralFees: 0,
+      });
+    }
+
+    // 2. Get order items for quantity calculation
+    const orderIds = orders.map(o => o.shopify_order_id);
+    const placeholders = orderIds.map(() => '?').join(',');
+
+    const [items] = await pool.query(`
+      SELECT order_id, title, quantity, price
+      FROM order_items
+      WHERE order_id IN (${placeholders})
+    `, orderIds);
+
+    console.log('📦 Found', items.length, 'order items');
+
+    // 3. Map items to orders
+    const itemsByOrderId = {};
+    items.forEach(item => {
+      if (!itemsByOrderId[item.order_id]) {
+        itemsByOrderId[item.order_id] = [];
+      }
+      itemsByOrderId[item.order_id].push(item);
+    });
+
+    const ordersWithItems = orders.map(order => ({
+      ...order,
+      items: itemsByOrderId[order.shopify_order_id] || []
+    }));
+
+    // 4. Calculate metrics
+    const lifetimeRevenue = orders.reduce(
+      (sum, o) => sum + Number(o.total_ex_gst || 0),
+      0
     );
 
-    const orders = paidOrders.map(order => {
-      // 🔍 Extract kiosk_id from metafields
-      const kioskField = order.metafields?.edges.find(
-        m => m.node.key === 'kiosk_id'
-      );
+    const lifetimeReferralFees = lifetimeRevenue * 0.05; // 5% referral fee
 
-      const kioskId = kioskField ? kioskField.node.value : null;
-
-      return {
-        id: order.id,
-        order_name: order.name,
-        order_date: order.createdAt,
-        status: order.displayFinancialStatus,
-
-        kiosk_id: kioskId,
-
-        shopify_customer_id: order.customer?.id || null,
-        customer_name: order.customer?.displayName,
-
-        total_ex_gst: parseFloat(
-          order.totalPriceSet.shopMoney.amount
-        ),
-
-        items: order.lineItems.edges.map(i => ({
-          title: i.node.title,
-          quantity: i.node.quantity,
-          price: parseFloat(
-            i.node.originalUnitPriceSet.shopMoney.amount
-          ),
-        })),
-      };
+    console.log('✅ Dashboard metrics:', {
+      orders: orders.length,
+      lifetimeRevenue,
+      lifetimeReferralFees,
     });
-
-    // 1️⃣ Save to MySQL
-    await saveOrdersToDB(orders);
-
-    // 2️⃣ Read totals from MySQL (source of truth)
-    const [[totals]] = await pool.query(`
-      SELECT
-        COALESCE(SUM(total_ex_gst), 0) AS lifetimeRevenue,
-        COUNT(*) AS totalOrders
-      FROM orders
-      WHERE status = 'PAID'
-    `);
-
-    // 3️⃣ Read orders from MySQL
-    const [rows] = await pool.query(`
-      SELECT * FROM orders
-      WHERE status = 'PAID'
-      ORDER BY order_date DESC
-    `);
-
-    const lifetimeRevenue = parseFloat(totals.lifetimeRevenue);
 
     res.json({
-      orders: rows,
+      orders: ordersWithItems,
       lifetimeRevenue,
-      lifetimeReferralFees: lifetimeRevenue * 0.1,
+      lifetimeReferralFees,
     });
+
   } catch (err) {
-    console.error('❌ Dashboard error:', err);
-    res.status(500).json({ error: 'Dashboard failed' });
+    console.error("❌ Dashboard error:", err);
+    res.status(500).json({ 
+      error: "Server error", 
+      message: err.message 
+    });
   }
 });
 

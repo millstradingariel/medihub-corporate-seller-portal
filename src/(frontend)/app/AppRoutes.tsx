@@ -62,10 +62,14 @@ const AppRoutes: React.FC<Props> = ({
 }) => {
   switch (activePage) {
     case "dashboard":
-      return <Dashboard orders={orders} lifetimeRevenue={lifetimeRevenue} lifetimeReferralFees={lifetimeReferralFees} />;
-
-    // case "sales":
-    //   return <Sales orders={orders} locations={locations} />;
+      return (
+        <Dashboard
+          orders={orders}
+          lifetimeRevenue={lifetimeRevenue}
+          lifetimeReferralFees={lifetimeReferralFees}
+          currentUser={currentUser}  // ✅ Add this
+        />
+      );
 
     case "locations":
       return <Locations locations={locations} loading={locationsLoading} onSelectLocation={onSelectLocation} />;
@@ -73,7 +77,7 @@ const AppRoutes: React.FC<Props> = ({
     case "devices":
       return selectedLocation ? (
         <Devices
-          locationId={selectedLocation.location_id}  // ✅ FIXED: Changed from _id to location_id
+          locationId={selectedLocation.location_id}
           locationName={selectedLocation.location_name}
           onBack={onBackToLocations}
           onSelectKiosk={(kioskId) => {
@@ -89,7 +93,7 @@ const AppRoutes: React.FC<Props> = ({
         <KioskSales
           kioskId={selectedKiosk}
           locationName={selectedLocation?.location_name || "Unknown"}
-          onBack={() => setActivePage("devices")}  // ✅ Add this
+          onBack={() => setActivePage("devices")}
         />
       ) : null;
 
@@ -98,7 +102,6 @@ const AppRoutes: React.FC<Props> = ({
 
     case "users":
     case "company-users":
-      // Allow super admins OR company admins
       return currentUser.isSuperAdmin || currentUser.companyRole === "company_admin" ? (
         <CompanyUsers />
       ) : (

@@ -51,31 +51,25 @@ export interface Location {
   shipping_state?: string;
 }
 
+// types.ts
 export interface OrderItem {
-  product_id?: string;
+  order_id: string;
   title: string;
-  sku?: string | null; // can be null if missing
+  sku?: string;
   quantity: number;
   price: number;
 }
 
 export interface Order {
-  id: string; // shopify order id
-  order_name: string;
+  shopify_order_id: string;
+  order_name?: string;
   order_date: string;
-  status: OrderStatus;
-
-  partner_id: string; // company_id
-  location_id: string;
-  kiosk_id: string;
-
-  shopify_customer_id?: string | null;
-  customer_name: string;
-
+  kiosk_id?: string;
+  shopify_customer_id?: string;
+  customer_name?: string;
+  status?: string;
   total_ex_gst: number;
-  total_amount: number; // subtotal + taxes - discounts
-
-  items: OrderItem[];
+  items?: OrderItem[];  // ✅ Add this!
 }
 
 export interface Device {
