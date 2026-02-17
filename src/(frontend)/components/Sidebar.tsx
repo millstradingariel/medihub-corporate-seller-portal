@@ -106,8 +106,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     currentUser?.companyRole === 'company super admin'
       ? [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'sales', label: 'Analytics', icon: ShoppingCart },
-        { id: 'locations', label: 'Locations', icon: MapPin },
         { id: 'locations', label: 'Locations', icon: MapPin },
 
         {
@@ -123,7 +121,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       : // currentUser?.companyRole === 'company_admin'
       [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'sales', label: 'Analytics', icon: ShoppingCart },
         { id: 'locations', label: 'Locations', icon: MapPin },
         // NO Users section for company_admin
       ];

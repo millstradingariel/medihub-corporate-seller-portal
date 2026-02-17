@@ -32,9 +32,10 @@ type Page =
 interface Props {
   activePage: Page;
   setActivePage: (page: Page) => void;
-  orders: Order[];
-  lifetimeRevenue: number;
-  lifetimeReferralFees: number;
+  // ❌ Remove these:
+  // orders: Order[];
+  // lifetimeRevenue: number;
+  // lifetimeReferralFees: number;
   locations: Location[];
   locationsLoading: boolean;
   selectedLocation: Location | null;
@@ -48,9 +49,6 @@ interface Props {
 const AppRoutes: React.FC<Props> = ({
   activePage,
   setActivePage,
-  orders,
-  lifetimeRevenue,
-  lifetimeReferralFees,
   locations,
   locationsLoading,
   selectedLocation,
@@ -64,10 +62,7 @@ const AppRoutes: React.FC<Props> = ({
     case "dashboard":
       return (
         <Dashboard
-          orders={orders}
-          lifetimeRevenue={lifetimeRevenue}
-          lifetimeReferralFees={lifetimeReferralFees}
-          currentUser={currentUser}  // ✅ Add this
+          currentUser={currentUser}  // ✅ Only this prop now
         />
       );
 
@@ -102,7 +97,7 @@ const AppRoutes: React.FC<Props> = ({
 
     case "users":
     case "company-users":
-      return currentUser.isSuperAdmin || currentUser.companyRole === "company_admin" ? (
+      return currentUser.isSuperAdmin || currentUser.companyRole === "company super admin" ? (
         <CompanyUsers />
       ) : (
         <div className="text-red-400">Access denied. Company Admins only.</div>

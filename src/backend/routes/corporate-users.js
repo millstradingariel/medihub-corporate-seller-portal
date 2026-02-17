@@ -8,28 +8,76 @@ const { admin } = require('../middlewares/verifyToken');
 /**
  * GET /api/users/company-users
  */
-router.get("/company-users", authenticate, authorize({ allowAnySuperAdmin: true }), async (req, res) => {
-  try {
-    const query = `
-      SELECT 
-        u.id,
-        u.email,
-        u.created_at,
-        c.company_id AS company_id,
-        c.company_name,
-        cu.role
-      FROM users u
-      JOIN company_users cu ON cu.user_id = u.id
-      JOIN company c ON c.company_id = cu.company_id
-      ORDER BY u.created_at DESC
-    `;
+// GET company-users - allow super admins AND company admins
+router.get("/company-users",
+  authenticate,
+  authorize({
+    allowAnySuperAdmin: true,                                        // 'super admin' and 'admin'
+    companyRoles: ['company super admin', 'company admin']           // both company roles
+  }),
+  async (req, res) => {
+    try {
+      const isSuperAdmin = req.user?.isSuperAdmin;
+      let users;
 
-    const [users] = await pool.query(query);
-    res.json({ data: users });
-  } catch (err) {
-    console.error("Get company users error:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
-  }
+      if (isSuperAdmin) {
+        [users] = await pool.query(`
+          SELECT u.id, u.email, u.created_at,
+                 c.company_id, c.company_name, cu.role
+          FROM users u
+          JOIN company_users cu ON cu.user_id = u.id
+          JOIN company c ON c.company_id = cu.company_id
+          ORDER BY u.created_at DESC
+        `);
+      } else {
+        [users] = await pool.query(`
+          SELECT u.id, u.email, u.created_at,
+                 c.company_id, c.company_name, cu.role
+          FROM users u
+          JOIN company_users cu ON cu.user_id = u.id
+          JOIN company c ON c.company_id = cu.company_id
+          WHERE c.company_id = ?
+          ORDER BY u.created_at DESC
+        `, [req.user.companyId]);
+      }
+
+      res.json({ data: users });
+    } catch (err) {
+      console.error("Get company users error:", err);
+      res.status(500).json({ message: "Server error", error: err.message });
+    }
+});
+// POST /api/company-users
+// Only 'super admin' can create company users
+router.post("/company-users",
+  authenticate,
+  authorize({
+    allowAnySuperAdmin: false,
+    superAdminRoles: ['super admin']   // Only 'super admin', not 'admin'
+  }),
+  async (req, res) => {
+    // ... your existing POST code
+});
+
+// GET /api/super-admin-users
+// Only super admins can see this
+router.get("/super-admin-users",
+  authenticate,
+  authorize({ allowAnySuperAdmin: true }),
+  async (req, res) => {
+    // ... your existing code
+});
+
+// POST /api/super-admin-users
+// Only 'super admin' can create other admins
+router.post("/super-admin-users",
+  authenticate,
+  authorize({
+    allowAnySuperAdmin: false,
+    superAdminRoles: ['super admin']   // Only top-level 'super admin'
+  }),
+  async (req, res) => {
+    // ... your existing code
 });
 
 /**

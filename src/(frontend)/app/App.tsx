@@ -346,9 +346,6 @@ const App: React.FC = () => {
           <AppRoutes
             activePage={activePage}
             setActivePage={setActivePage}
-            orders={orders}
-            lifetimeRevenue={lifetimeRevenue}
-            lifetimeReferralFees={lifetimeReferralFees}
             locations={locations}
             locationsLoading={locationsLoading}
             selectedLocation={selectedLocation}
