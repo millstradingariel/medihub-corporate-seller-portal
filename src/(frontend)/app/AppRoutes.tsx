@@ -73,7 +73,7 @@ const AppRoutes: React.FC<Props> = ({
     case "devices":
       return selectedLocation ? (
         <Devices
-          locationId={selectedLocation._id}
+          locationId={selectedLocation.location_id}  // ✅ FIXED: Changed from _id to location_id
           locationName={selectedLocation.location_name}
           onBack={onBackToLocations}
           onSelectKiosk={(kioskId) => {
