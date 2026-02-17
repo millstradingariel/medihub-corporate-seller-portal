@@ -5,15 +5,27 @@ const { authenticate } = require("../middlewares/authenticate");
 
 router.get("/dashboard", authenticate, async (req, res) => {
   try {
-    const { companyId } = req.query;
+    const { companyId, year, month } = req.query;
 
-    console.log('📊 Fetching dashboard for companyId:', companyId);
+    console.log('📊 Dashboard request:', { companyId, year, month });
 
     if (!companyId) {
       return res.status(400).json({ error: "companyId is required" });
     }
 
-    // 1. Get all orders for this company
+    // Build date filter
+    let dateFilter = '';
+    const queryParams = [companyId];
+
+    if (year && month) {
+      dateFilter = ' AND YEAR(o.order_date) = ? AND MONTH(o.order_date) = ?';
+      queryParams.push(year, month);
+    } else if (year) {
+      dateFilter = ' AND YEAR(o.order_date) = ?';
+      queryParams.push(year);
+    }
+
+    // Get all orders for this company
     const [orders] = await pool.query(`
       SELECT 
         o.shopify_order_id,
@@ -30,11 +42,11 @@ router.get("/dashboard", authenticate, async (req, res) => {
       JOIN locations l ON ld.location_sanity_id = l.sanity_id
       JOIN company_locations cl ON l.sanity_id = cl.location_sanity_id
       JOIN company c ON cl.company_sanity_id = c._id
-      WHERE c.company_id = ?
+      WHERE c.company_id = ?${dateFilter}
       ORDER BY o.order_date DESC
-    `, [companyId]);
+    `, queryParams);
 
-    console.log('📦 Found', orders.length, 'orders for company');
+    console.log('📦 Found', orders.length, 'orders');
 
     if (!orders.length) {
       return res.json({
@@ -44,19 +56,17 @@ router.get("/dashboard", authenticate, async (req, res) => {
       });
     }
 
-    // 2. Get order items for quantity calculation
+    // Get order items
     const orderIds = orders.map(o => o.shopify_order_id);
     const placeholders = orderIds.map(() => '?').join(',');
 
     const [items] = await pool.query(`
-      SELECT order_id, title, quantity, price
+      SELECT order_id, title, sku, quantity, price
       FROM order_items
       WHERE order_id IN (${placeholders})
     `, orderIds);
 
-    console.log('📦 Found', items.length, 'order items');
-
-    // 3. Map items to orders
+    // Map items to orders
     const itemsByOrderId = {};
     items.forEach(item => {
       if (!itemsByOrderId[item.order_id]) {
@@ -70,19 +80,13 @@ router.get("/dashboard", authenticate, async (req, res) => {
       items: itemsByOrderId[order.shopify_order_id] || []
     }));
 
-    // 4. Calculate metrics
+    // Calculate metrics
     const lifetimeRevenue = orders.reduce(
-      (sum, o) => sum + Number(o.total_ex_gst || 0),
-      0
+      (sum, o) => sum + Number(o.total_ex_gst || 0), 0
     );
+    const lifetimeReferralFees = lifetimeRevenue * 0.05;
 
-    const lifetimeReferralFees = lifetimeRevenue * 0.05; // 5% referral fee
-
-    console.log('✅ Dashboard metrics:', {
-      orders: orders.length,
-      lifetimeRevenue,
-      lifetimeReferralFees,
-    });
+    console.log('✅ Metrics:', { lifetimeRevenue, lifetimeReferralFees });
 
     res.json({
       orders: ordersWithItems,
@@ -92,10 +96,7 @@ router.get("/dashboard", authenticate, async (req, res) => {
 
   } catch (err) {
     console.error("❌ Dashboard error:", err);
-    res.status(500).json({ 
-      error: "Server error", 
-      message: err.message 
-    });
+    res.status(500).json({ error: "Server error", message: err.message });
   }
 });
 
