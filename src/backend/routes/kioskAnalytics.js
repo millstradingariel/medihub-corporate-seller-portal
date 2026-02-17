@@ -1,12 +1,16 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../db");
+const { pool } = require("../db");
+const { authenticate } = require("../middlewares/authenticate");
 
 /**
  * GET /api/kiosk-analytics?kioskId=...
+ * kioskId should be the device's internal_id (e.g., "2FD2523008322073")
  */
-router.get("/", async (req, res) => {
+router.get("/kiosk-analytics", authenticate, async (req, res) => {
   const { kioskId } = req.query;
+
+  console.log('📊 Fetching analytics for kioskId:', kioskId);
 
   if (!kioskId) {
     return res.status(400).json({ error: "kioskId is required" });
@@ -15,18 +19,19 @@ router.get("/", async (req, res) => {
   try {
     /* ================= ORDERS ================= */
 
-    const [orders] = await db.query(
-      `
-      SELECT
+    const [orders] = await pool.query(
+      `SELECT
         shopify_order_id,
         order_date,
         shopify_customer_id,
         total_ex_gst
       FROM orders
       WHERE kiosk_id = ?
-      `,
+      ORDER BY order_date DESC`,
       [kioskId]
     );
+
+    console.log('📦 Found', orders.length, 'orders for kiosk');
 
     if (!orders.length) {
       return res.json({
@@ -44,14 +49,15 @@ router.get("/", async (req, res) => {
 
     /* ================= ORDER ITEMS ================= */
 
-    const [items] = await db.query(
-      `
-      SELECT title, quantity, price
-      FROM order_items
-      WHERE order_id IN (?)
-      `,
-      [orderIds]
+    const placeholders = orderIds.map(() => '?').join(',');
+    const [items] = await pool.query(
+      `SELECT title, quantity, price
+       FROM order_items
+       WHERE order_id IN (${placeholders})`,
+      orderIds
     );
+
+    console.log('📦 Found', items.length, 'order items');
 
     /* ================= METRICS ================= */
 
@@ -89,18 +95,25 @@ router.get("/", async (req, res) => {
 
     const products = Object.values(productMap);
 
-    const productsByQuantity = [...products].sort(
-      (a, b) => b.quantity - a.quantity
-    );
+    const productsByQuantity = [...products]
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 10); // Top 10
 
-    const productsByRevenue = [...products].sort(
-      (a, b) => b.revenue - a.revenue
-    );
+    const productsByRevenue = [...products]
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 10); // Top 10
 
     const unitsSold = products.reduce(
       (sum, p) => sum + p.quantity,
       0
     );
+
+    console.log('✅ Analytics calculated:', {
+      orders: orders.length,
+      revenue,
+      unitsSold,
+      customers
+    });
 
     /* ================= RESPONSE ================= */
 
@@ -115,8 +128,8 @@ router.get("/", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("Error fetching kiosk analytics:", err);
-    res.status(500).json({ error: "Server error" });
+    console.error("❌ Error fetching kiosk analytics:", err);
+    res.status(500).json({ error: "Server error", details: err.message });
   }
 });
 
