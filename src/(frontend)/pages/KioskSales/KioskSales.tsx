@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { DollarSign, Users, ShoppingBag, Percent, Loader2 } from "lucide-react";
+import { DollarSign, Users, ShoppingBag, Percent, Loader2, ArrowLeft, Calendar } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -15,6 +15,7 @@ import {
 interface KioskSalesProps {
   kioskId: string;
   locationName: string;
+  onBack?: () => void;
 }
 
 interface Order {
@@ -30,6 +31,8 @@ interface ProductStat {
   revenue: number;
 }
 
+type FilterType = 'all' | 'month' | 'year';
+
 const API_URL = import.meta.env.VITE_API_URL;
 
 /* ================= COMPONENT ================= */
@@ -37,6 +40,7 @@ const API_URL = import.meta.env.VITE_API_URL;
 export default function KioskSales({
   kioskId,
   locationName,
+  onBack,
 }: KioskSalesProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [productsByQuantity, setProductsByQuantity] = useState<ProductStat[]>([]);
@@ -45,6 +49,11 @@ export default function KioskSales({
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Filter states
+  const [filterType, setFilterType] = useState<FilterType>('all');
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
 
   /* ================= FETCH ================= */
 
@@ -58,7 +67,15 @@ export default function KioskSales({
         setError(null);
 
         const token = localStorage.getItem('firebaseToken');
-        const url = `${API_URL}/api/kiosk-analytics?kioskId=${kioskId}`;
+        
+        // Build query params
+        let url = `${API_URL}/api/kiosk-analytics?kioskId=${kioskId}`;
+        if (filterType === 'year') {
+          url += `&year=${selectedYear}`;
+        } else if (filterType === 'month') {
+          url += `&year=${selectedYear}&month=${selectedMonth}`;
+        }
+        
         console.log('🔗 Fetching from:', url);
 
         const res = await fetch(url, {
@@ -89,7 +106,7 @@ export default function KioskSales({
     };
 
     fetchAnalytics();
-  }, [kioskId]);
+  }, [kioskId, filterType, selectedYear, selectedMonth]);
 
   /* ================= METRICS ================= */
 
@@ -127,6 +144,27 @@ export default function KioskSales({
       currency: "USD",
     }).format(n);
 
+  // Generate year options (last 5 years)
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 5 }, (_, i) => currentYear - i);
+  }, []);
+
+  const monthOptions = [
+    { value: 1, label: 'January' },
+    { value: 2, label: 'February' },
+    { value: 3, label: 'March' },
+    { value: 4, label: 'April' },
+    { value: 5, label: 'May' },
+    { value: 6, label: 'June' },
+    { value: 7, label: 'July' },
+    { value: 8, label: 'August' },
+    { value: 9, label: 'September' },
+    { value: 10, label: 'October' },
+    { value: 11, label: 'November' },
+    { value: 12, label: 'December' },
+  ];
+
   /* ================= STATES ================= */
 
   if (loading) {
@@ -139,8 +177,19 @@ export default function KioskSales({
 
   if (error) {
     return (
-      <div className="text-center py-12">
-        <p className="text-red-400 text-lg">{error}</p>
+      <div className="space-y-6">
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors"
+          >
+            <ArrowLeft size={18} />
+            Back to Devices
+          </button>
+        )}
+        <div className="text-center py-12">
+          <p className="text-red-400 text-lg">{error}</p>
+        </div>
       </div>
     );
   }
@@ -149,9 +198,96 @@ export default function KioskSales({
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h2 className="text-2xl font-bold text-white">Kiosk Sales</h2>
-        <p className="text-zinc-400">{locationName} — Kiosk ID: {kioskId}</p>
+      {/* ===== HEADER WITH BACK BUTTON ===== */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white transition-colors"
+            >
+              <ArrowLeft size={18} />
+            </button>
+          )}
+          <div>
+            <h2 className="text-2xl font-bold text-white">Kiosk Sales</h2>
+            <p className="text-zinc-400">{locationName} — Kiosk ID: {kioskId}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ===== FILTERS ===== */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+          <div className="flex items-center gap-3">
+            <Calendar size={20} className="text-zinc-400" />
+            <span className="text-zinc-400 text-sm font-medium">Filter by:</span>
+          </div>
+
+          {/* Filter Type Selector */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setFilterType('all')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                filterType === 'all'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+              }`}
+            >
+              All Time
+            </button>
+            <button
+              onClick={() => setFilterType('year')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                filterType === 'year'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+              }`}
+            >
+              By Year
+            </button>
+            <button
+              onClick={() => setFilterType('month')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                filterType === 'month'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+              }`}
+            >
+              By Month
+            </button>
+          </div>
+
+          {/* Year Selector (shown for 'year' and 'month' filters) */}
+          {(filterType === 'year' || filterType === 'month') && (
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Month Selector (shown only for 'month' filter) */}
+          {filterType === 'month' && (
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(Number(e.target.value))}
+              className="px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {monthOptions.map((month) => (
+                <option key={month.value} value={month.value}>
+                  {month.label}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
 
       {/* ===== STATS ===== */}
@@ -224,7 +360,9 @@ export default function KioskSales({
       {orders.length === 0 && (
         <div className="text-center py-12">
           <ShoppingBag size={48} className="mx-auto text-zinc-600 mb-4" />
-          <p className="text-zinc-400 text-lg">No sales data available for this kiosk yet.</p>
+          <p className="text-zinc-400 text-lg">
+            No sales data available for this period.
+          </p>
         </div>
       )}
     </div>

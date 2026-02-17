@@ -6,7 +6,7 @@ import Locations from "../pages/Locations/Locations";
 import Devices from "../pages/Devices/Devices";
 import Feedback from "../pages/Feedback/Feedback";
 // import UserList from "../(frontend)/pages/Usersss/UserList";
-import Companies from "../pages/Company/Company"; 
+import Companies from "../pages/Company/Company";
 import Accounts from "../pages/Finance/Accounts";
 import Payouts from "../pages/Finance/Payouts";
 import { Partner, Location, Order } from "../../../types";
@@ -86,7 +86,11 @@ const AppRoutes: React.FC<Props> = ({
 
     case "kiosk-sales":
       return selectedKiosk ? (
-        <KioskSales kioskId={selectedKiosk} locationName={selectedLocation?.location_name || "Unknown"} />
+        <KioskSales
+          kioskId={selectedKiosk}
+          locationName={selectedLocation?.location_name || "Unknown"}
+          onBack={() => setActivePage("devices")}  // ✅ Add this
+        />
       ) : null;
 
     case "feedback":

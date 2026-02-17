@@ -108,6 +108,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'sales', label: 'Analytics', icon: ShoppingCart },
         { id: 'locations', label: 'Locations', icon: MapPin },
+        { id: 'locations', label: 'Locations', icon: MapPin },
+
         {
           id: 'users',
           label: 'Users',

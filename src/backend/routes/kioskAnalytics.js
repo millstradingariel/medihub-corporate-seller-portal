@@ -4,19 +4,37 @@ const { pool } = require("../db");
 const { authenticate } = require("../middlewares/authenticate");
 
 /**
- * GET /api/kiosk-analytics?kioskId=...
- * kioskId should be the device's internal_id (e.g., "2FD2523008322073")
+ * GET /api/kiosk-analytics?kioskId=...&year=2025&month=12
  */
 router.get("/kiosk-analytics", authenticate, async (req, res) => {
-  const { kioskId } = req.query;
+  const { kioskId, year, month } = req.query;
 
-  console.log('📊 Fetching analytics for kioskId:', kioskId);
+  console.log('📊 Fetching analytics for kioskId:', kioskId, 'year:', year, 'month:', month);
 
   if (!kioskId) {
     return res.status(400).json({ error: "kioskId is required" });
   }
 
   try {
+    /* ================= BUILD QUERY WITH DATE FILTERS ================= */
+
+    let dateFilter = '';
+    const queryParams = [kioskId];
+
+    if (year && month) {
+      // Filter by specific month
+      dateFilter = ' AND YEAR(order_date) = ? AND MONTH(order_date) = ?';
+      queryParams.push(year, month);
+      console.log(`📅 Filtering by month: ${year}-${month}`);
+    } else if (year) {
+      // Filter by year only
+      dateFilter = ' AND YEAR(order_date) = ?';
+      queryParams.push(year);
+      console.log(`📅 Filtering by year: ${year}`);
+    } else {
+      console.log('📅 No date filter (all time)');
+    }
+
     /* ================= ORDERS ================= */
 
     const [orders] = await pool.query(
@@ -26,9 +44,9 @@ router.get("/kiosk-analytics", authenticate, async (req, res) => {
         shopify_customer_id,
         total_ex_gst
       FROM orders
-      WHERE kiosk_id = ?
+      WHERE kiosk_id = ?${dateFilter}
       ORDER BY order_date DESC`,
-      [kioskId]
+      queryParams
     );
 
     console.log('📦 Found', orders.length, 'orders for kiosk');
@@ -129,7 +147,12 @@ router.get("/kiosk-analytics", authenticate, async (req, res) => {
 
   } catch (err) {
     console.error("❌ Error fetching kiosk analytics:", err);
-    res.status(500).json({ error: "Server error", details: err.message });
+    console.error("❌ Error stack:", err.stack);
+    res.status(500).json({ 
+      error: "Server error", 
+      message: err.message,
+      kioskId: kioskId
+    });
   }
 });
 
