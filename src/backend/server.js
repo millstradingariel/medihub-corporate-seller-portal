@@ -85,7 +85,7 @@ app.use('/api/sanity', sanityRoutes);
 app.use('/api/locationss', locationRoutes);
 app.use('/api', deviceRoutes);
 app.use('/api/companies', companyRoutes);
-app.use('/api/kiosk-analytics', kioskAnalyticsRouter);
+app.use('/api', kioskAnalyticsRouter);
 app.use('/api/auth', userRoutes);
 app.use('/api', comRoutes);
 app.use('/api', shopifyRoutes);
