@@ -1,53 +1,4 @@
-const express = require("express");
-const router = express.Router();
-const { pool } = require('../db');
-const { authenticate } = require("../middlewares/authenticate");
-const { authorize } = require("../middlewares/authorize");
-const { admin } = require('../middlewares/verifyToken');
-
-/* ========== COMPANY USERS ========== */
-
-// GET /api/company-users
-router.get("/company-users",
-  authenticate,
-  authorize({
-    allowAnySuperAdmin: true,
-    companyRoles: ['company super admin', 'company admin']
-  }),
-  async (req, res) => {
-    try {
-      const isSuperAdmin = req.user?.isSuperAdmin;
-      let users;
-
-      if (isSuperAdmin) {
-        [users] = await pool.query(`
-          SELECT u.id, u.email, u.created_at,
-                 c.company_id, c.company_name, cu.role
-          FROM users u
-          JOIN company_users cu ON cu.user_id = u.id
-          JOIN company c ON c.company_id = cu.company_id
-          ORDER BY u.created_at DESC
-        `);
-      } else {
-        [users] = await pool.query(`
-          SELECT u.id, u.email, u.created_at,
-                 c.company_id, c.company_name, cu.role
-          FROM users u
-          JOIN company_users cu ON cu.user_id = u.id
-          JOIN company c ON c.company_id = cu.company_id
-          WHERE c.company_id = ?
-          ORDER BY u.created_at DESC
-        `, [req.user.companyId]);
-      }
-
-      res.json({ data: users });
-    } catch (err) {
-      console.error("Get company users error:", err);
-      res.status(500).json({ message: "Server error", error: err.message });
-    }
-});
-
-// POST /api/company-users
+// Update POST /company-users
 router.post("/company-users",
   authenticate,
   authorize({
@@ -81,16 +32,18 @@ router.post("/company-users",
         emailVerified: false
       });
 
+      // Insert into users table WITH role
       const [userResult] = await pool.query(
-        'INSERT INTO users (firebase_uid, email, created_at) VALUES (?, ?, NOW())',
-        [firebaseUser.uid, email]
+        'INSERT INTO users (firebase_uid, email, role, is_active, created_at) VALUES (?, ?, ?, 1, NOW())',
+        [firebaseUser.uid, email, role]  // ✅ Include role
       );
 
       const userId = userResult.insertId;
 
+      // Link to company
       await pool.query(
-        'INSERT INTO company_users (user_id, company_id, role) VALUES (?, ?, ?)',
-        [userId, company_id, role]
+        'INSERT INTO company_users (user_id, company_id, created_at) VALUES (?, ?, NOW())',
+        [userId, company_id]
       );
 
       res.json({
@@ -107,35 +60,7 @@ router.post("/company-users",
     }
 });
 
-/* ========== SUPER ADMIN USERS ========== */
-
-// GET /api/super-admin-users
-router.get("/super-admin-users",
-  authenticate,
-  authorize({ allowAnySuperAdmin: true }),
-  async (req, res) => {
-    try {
-      const [users] = await pool.query(`
-        SELECT 
-          u.id,
-          u.email,
-          u.created_at,
-          sau.user_id,
-          sau.name,
-          sau.role
-        FROM users u
-        JOIN super_admin_users sau ON sau.user_id = u.id
-        ORDER BY u.created_at DESC
-      `);
-
-      res.json({ data: users });
-    } catch (err) {
-      console.error("Get admin users error:", err);
-      res.status(500).json({ message: "Server error", error: err.message });
-    }
-});
-
-// POST /api/super-admin-users
+// Update POST /super-admin-users
 router.post("/super-admin-users",
   authenticate,
   authorize({
@@ -169,21 +94,15 @@ router.post("/super-admin-users",
         emailVerified: false
       });
 
-      const [userResult] = await pool.query(
-        'INSERT INTO users (firebase_uid, email, created_at) VALUES (?, ?, NOW())',
-        [firebaseUser.uid, email]
-      );
-
-      const userId = userResult.insertId;
-
+      // Insert into users table WITH role and name
       await pool.query(
-        'INSERT INTO super_admin_users (user_id, name, role) VALUES (?, ?, ?)',
-        [userId, name, role]
+        'INSERT INTO users (firebase_uid, email, name, role, is_active, created_at) VALUES (?, ?, ?, ?, 1, NOW())',
+        [firebaseUser.uid, email, name, role]  // ✅ Include name and role
       );
 
       res.json({
         message: "User created successfully",
-        data: { id: userId, email, name, role }
+        data: { email, name, role }
       });
 
     } catch (err) {
@@ -195,4 +114,27 @@ router.post("/super-admin-users",
     }
 });
 
-module.exports = router;
+// Update GET /super-admin-users
+router.get("/super-admin-users",
+  authenticate,
+  authorize({ allowAnySuperAdmin: true }),
+  async (req, res) => {
+    try {
+      const [users] = await pool.query(`
+        SELECT 
+          id,
+          email,
+          name,
+          role,
+          created_at
+        FROM users
+        WHERE role IN ('super admin', 'admin')
+        ORDER BY created_at DESC
+      `);
+
+      res.json({ data: users });
+    } catch (err) {
+      console.error("Get admin users error:", err);
+      res.status(500).json({ message: "Server error", error: err.message });
+    }
+});
