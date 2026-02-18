@@ -43,7 +43,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           icon: DollarSign,
           hasSubmenu: true,
           submenu: [
-            { id: 'paid-orders', label: 'Paid Orders', icon: Receipt },
             { id: 'payouts', label: 'Payouts', icon: Wallet },
             { id: 'accounts', label: 'Accounts', icon: Building2 },
           ]
@@ -69,7 +68,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             icon: DollarSign,
             hasSubmenu: true,
             submenu: [
-              { id: 'paid-orders', label: 'Paid Orders', icon: Receipt },
               { id: 'payouts', label: 'Payouts', icon: Wallet },
               { id: 'accounts', label: 'Accounts', icon: Building2 },
             ]
@@ -161,7 +159,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         {/* User Info */}
         <div className="p-4 border-b border-zinc-800">
           <p className="text-sm text-zinc-400">Logged in as</p>
-          <p className="text-white font-medium truncate">{partnerName}</p>
+          <p className="text-white font-medium truncate">{currentUser.name}</p>
           {currentUser?.isSuperAdmin && (
             <span className="inline-block mt-1 px-2 py-1 text-xs bg-purple-500/20 text-purple-400 rounded">
               Super Admin

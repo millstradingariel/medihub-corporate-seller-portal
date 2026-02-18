@@ -50,6 +50,8 @@ router.get('/by-email', async (req, res) => {
       SELECT 
         u.id,
         u.email,
+        u.name,
+        u.role AS user_role,
         cu.role,
         c.company_id,
         c.company_name

@@ -33,10 +33,6 @@ type Page =
 interface Props {
   activePage: Page;
   setActivePage: (page: Page) => void;
-  // ❌ Remove these:
-  // orders: Order[];
-  // lifetimeRevenue: number;
-  // lifetimeReferralFees: number;
   locations: Location[];
   locationsLoading: boolean;
   selectedLocation: Location | null;

@@ -335,7 +335,7 @@ const App: React.FC = () => {
         }}
         isMobileOpen={isMobileMenuOpen}
         setIsMobileOpen={setIsMobileMenuOpen}
-        partnerName={currentUser.companyName || currentUser.email || ""}
+        partnerName={currentUser.name || currentUser.role}
         currentUser={currentUser}
       />
 

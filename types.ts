@@ -27,9 +27,10 @@ export interface Partner {
   companyId: number | null;
   companyName: string | null;
   companyRole: string | null;
-  name?: string;
+  name: string | null;
   token?: string;
   is_active: boolean;
+  role: string;
 }
 
 export interface Company {
@@ -51,7 +52,6 @@ export interface Location {
   shipping_state?: string;
 }
 
-// types.ts
 export interface OrderItem {
   order_id: string;
   title: string;
@@ -69,13 +69,13 @@ export interface Order {
   customer_name?: string;
   status?: string;
   total_ex_gst: number;
-  items?: OrderItem[];  // ✅ Add this!
+  items?: OrderItem[];
 }
 
 export interface Device {
   device_id: string;
   internalId: string;
-  partner_id: string; // company_id
+  partner_id: string;
   device_type: DeviceType;
   status: DeviceStatus;
 }
@@ -100,8 +100,6 @@ export interface Feedback {
   created_at: string;
 }
 
-// ================= HELPER TYPES =================
-
 export interface UserSession {
   partner: Partner;
   isAuthenticated: boolean;
@@ -110,8 +108,8 @@ export interface UserSession {
 export interface IUser {
   id: number;
   firebase_uid: string;
+  name: string;
   email: string;
   role: string | null;
-  company_id?: string;
   created_at?: string;
 }
