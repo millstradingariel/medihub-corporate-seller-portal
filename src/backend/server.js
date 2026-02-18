@@ -6,6 +6,7 @@ const { pool } = require('./db');
 
 // Import your routes
 const dashboardRoute = require('./routes/dashboard');
+const corpDashboardRoute = require('./routes/corporateDashboard');
 const analyticsRoute = require("./routes/analytics");
 const filterRoutes = require("./routes/filter");
 const sanityRoutes = require("./routes/sanity");
@@ -78,6 +79,7 @@ app.get('/api/test', async (req, res) => {
 
 // Wire your routes
 app.use('/api', dashboardRoute);
+app.use('/api', corpDashboardRoute);
 app.use('/api', analyticsRoute);
 app.use('/api', filterRoutes);
 app.use('/api', protectedRoutes);

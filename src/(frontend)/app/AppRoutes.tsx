@@ -1,5 +1,6 @@
 import React from "react";
 import Dashboard from "../pages/Dashboard/Dashboard";
+import CorporateDashboard from "../pages/Dashboard/CorporateDashboard";
 import Sales from "../pages/Sales/Sales";
 import KioskSales from "../pages/KioskSales/KioskSales";
 import Locations from "../pages/Locations/Locations";
@@ -60,10 +61,10 @@ const AppRoutes: React.FC<Props> = ({
 }) => {
   switch (activePage) {
     case "dashboard":
-      return (
-        <Dashboard
-          currentUser={currentUser}  // ✅ Only this prop now
-        />
+      return currentUser.isSuperAdmin ? (
+        <CorporateDashboard currentUser={currentUser} />
+      ) : (
+        <Dashboard currentUser={currentUser} />
       );
 
     case "locations":
