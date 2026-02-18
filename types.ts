@@ -27,7 +27,7 @@ export interface Partner {
   companyId: number | null;
   companyName: string | null;
   companyRole: string | null;
-  name: string | null;
+  name: string | "Marky";
   token?: string;
   is_active: boolean;
   role: string;

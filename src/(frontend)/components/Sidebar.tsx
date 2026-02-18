@@ -179,7 +179,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-4 border-b border-zinc-800">
           <p className="text-sm text-zinc-400">Logged in as</p>
           <p className="text-white font-medium truncate">
-            {currentUser?.name}
+            {partnerName}
           </p>
           {roleBadge && (
             <span className={`inline-block mt-1 px-2 py-1 text-xs ${roleBadge.bgColor} ${roleBadge.textColor} rounded`}>
