@@ -15,7 +15,7 @@ router.get('/by-email', async (req, res) => {
     
     // Get user with role
     const [users] = await pool.query(
-      'SELECT id, firebase_uid, email, name, role, is_active FROM users WHERE email = ?',
+      'SELECT id, firebase_uid, email, name_user, role, is_active FROM users WHERE email = ?',
       [email]
     );
     
@@ -34,7 +34,7 @@ router.get('/by-email', async (req, res) => {
         data: {
           id: user.id,
           email: user.email,
-          name: user.name,
+          name: user.name_user,
           is_active: user.is_active,
           isSuperAdmin: true,
           superAdminRole: user.role  // 'super admin' or 'admin'
@@ -64,7 +64,7 @@ router.get('/by-email', async (req, res) => {
         data: {
           id: user.id,
           email: user.email,
-          name: user.name,
+          name: user.name_user,
           is_active: user.is_active,
           isSuperAdmin: false,
           companyId: companyData.company_id,
