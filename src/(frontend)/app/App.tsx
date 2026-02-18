@@ -171,6 +171,11 @@ const App: React.FC = () => {
     setActivePage("dashboard");
   }, [currentUser, token]);
 
+  useEffect(() => {
+    console.log('🔍 Current User Object:', currentUser);
+    console.log('📛 Name:', currentUser?.name);
+    console.log('📧 Email:', currentUser?.email);
+  }, [currentUser]);
   /* ========================= LOCATIONS ========================= */
   useEffect(() => {
     if (!currentUser?.companyId || !token) {
