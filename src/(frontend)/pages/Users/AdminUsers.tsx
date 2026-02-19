@@ -80,7 +80,7 @@ const CompanyUsers: React.FC = () => {
       // Success - refresh list and close modal
       await fetchUsers();
       setIsModalOpen(false);
-      setFormData({ email: '', password: '', name: '', role: 'staff' });
+      setFormData({ email: '', password: '', name: '', role: 'super admin' });
     } catch (err: any) {
       setFormError(err.message);
     } finally {

@@ -8,8 +8,8 @@ const { admin } = require('../middlewares/verifyToken');
 router.get("/company-users",
   authenticate,
   authorize({
-    allowAnySuperAdmin: true,                               
-    companyRoles: ['company super admin', 'company admin']         
+    allowAnySuperAdmin: true,
+    companyRoles: ['company super admin', 'company admin']
   }),
   async (req, res) => {
     try {
@@ -42,23 +42,23 @@ router.get("/company-users",
       console.error("Get company users error:", err);
       res.status(500).json({ message: "Server error", error: err.message });
     }
-});
+  });
 
 router.post("/company-users",
   authenticate,
   authorize({
     allowAnySuperAdmin: false,
-    superAdminRoles: ['super admin'] 
+    superAdminRoles: ['super admin']
   }),
   async (req, res) => {
-});
+  });
 
 router.get("/super-admin-users",
   authenticate,
   authorize({ allowAnySuperAdmin: true }),
   async (req, res) => {
     // ... your existing code
-});
+  });
 
 
 router.post("/super-admin-users",
@@ -69,7 +69,7 @@ router.post("/super-admin-users",
   }),
   async (req, res) => {
     // ... your existing code
-});
+  });
 
 /**
  * POST /api/users/company-users
@@ -96,7 +96,7 @@ router.post("/company-users", authenticate, authorize({ allowAnySuperAdmin: true
 
     const [userResult] = await pool.query(
       'INSERT INTO users (firebase_uid, name, role, email, created_at) VALUES (?, ?, ?, ?, NOW())',
-      [firebaseUser.uid, ,name, role, email]
+      [firebaseUser.uid, , name, role, email]
     );
 
     const userId = userResult.insertId;
@@ -123,18 +123,12 @@ router.post("/company-users", authenticate, authorize({ allowAnySuperAdmin: true
 router.get("/super-admin-users", authenticate, authorize({ allowAnySuperAdmin: true }), async (req, res) => {
   try {
     const query1 = `
-      SELECT 
-        u.id,
-        u.name,
-        u.email,
-        u.is_active,
-        u.role,
-        u.created_at
-      FROM users u
-      ORDER BY u.created_at DESC
-    `;
-
+        SELECT u.id, u.name, u.email, u.is_active, u.role, u.created_at
+        FROM users u
+        ORDER BY u.created_at DESC
+      `;
     const [users] = await pool.query(query1);
+
     res.json({ data: users });
   } catch (err) {
     console.error("Get admin users error:", err);
@@ -169,7 +163,6 @@ router.post("/super-admin-users", authenticate, authorize({ allowAnySuperAdmin: 
       'INSERT INTO users (firebase_uid, email, name, role, created_at) VALUES (?, ?, ?, ? NOW())',
       [firebaseUser.uid, email, name, role]
     );
-    
     res.json({
       message: "User created successfully",
       data: { id: userId, email, name, role }
