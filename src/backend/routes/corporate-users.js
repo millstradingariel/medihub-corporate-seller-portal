@@ -67,8 +67,8 @@ router.get("/company-users",
 router.post("/company-users",
   authenticate,
   authorize({
-    superAdminRoles: ['super admin'],       // Global super admin
-    companyRoles: ['company super admin']   // Company-level super admin
+    allowAnySuperAdmin: true,
+    companyRoles: ['company super admin', 'company admin']
   }),
   async (req, res) => {
     try {
