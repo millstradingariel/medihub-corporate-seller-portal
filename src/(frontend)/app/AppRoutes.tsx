@@ -6,7 +6,6 @@ import KioskSales from "../pages/KioskSales/KioskSales";
 import Locations from "../pages/Locations/Locations";
 import Devices from "../pages/Devices/Devices";
 import Feedback from "../pages/Feedback/Feedback";
-// import UserList from "../(frontend)/pages/Usersss/UserList";
 import Companies from "../pages/Company/Company";
 import Accounts from "../pages/Finance/Accounts";
 import Payouts from "../pages/Finance/Payouts";
@@ -94,14 +93,15 @@ const AppRoutes: React.FC<Props> = ({
 
     case "users":
     case "company-users":
-      return currentUser.isSuperAdmin || currentUser.companyRole === "company super admin" ? (
-        <CompanyUsers />
+      return currentUser.isSuperAdmin || 
+             currentUser.companyRole === "company super admin" || 
+             currentUser.companyRole === "company admin" ? (
+        <CompanyUsers currentUser={currentUser} />  // ✅ Pass currentUser
       ) : (
         <div className="text-red-400">Access denied. Company Admins only.</div>
       );
 
     case "admin-users":
-      // Only super admins can see admin users
       return currentUser.isSuperAdmin ? (
         <AdminUsers />
       ) : (
@@ -109,7 +109,6 @@ const AppRoutes: React.FC<Props> = ({
       );
 
     case "companies":
-      // Only super admins can access companies page
       return currentUser.isSuperAdmin ? (
         <Companies />
       ) : (

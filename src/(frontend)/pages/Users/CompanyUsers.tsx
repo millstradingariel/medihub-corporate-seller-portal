@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { UserCog, Plus, X, Building2, Mail, Shield, Calendar, Search, Loader2 } from 'lucide-react';
+import { Partner } from "../../../../types";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 interface CompanyUser {
   id: number;
+  name: string;
   email: string;
   company_id: string;
   company_name: string;
@@ -18,7 +20,11 @@ interface Company {
   company_name: string;
 }
 
-const CompanyUsers: React.FC = () => {
+interface CompanyUsersProps {
+  currentUser: Partner;
+}
+
+const CompanyUsers: React.FC<CompanyUsersProps> = ({ currentUser }) => {
   const [users, setUsers] = useState<CompanyUser[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,14 +32,6 @@ const CompanyUsers: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCompanyFilter, setSelectedCompanyFilter] = useState<string>('all');
-
-  const currentUser = (() => {
-    try {
-      return JSON.parse(localStorage.getItem("currentUser") || "null");
-    } catch {
-      return null;
-    }
-  })();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -46,8 +44,10 @@ const CompanyUsers: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Fetch companies
+  // Fetch companies (only for super admins)
   useEffect(() => {
+    if (!currentUser.isSuperAdmin) return;
+
     const fetchCompanies = async () => {
       try {
         const token = localStorage.getItem("firebaseToken");
@@ -62,7 +62,7 @@ const CompanyUsers: React.FC = () => {
     };
 
     fetchCompanies();
-  }, []);
+  }, [currentUser.isSuperAdmin]);
 
   // Fetch users
   const fetchUsers = async () => {
@@ -86,42 +86,56 @@ const CompanyUsers: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!isModalOpen) return;
-
-    if (
-      currentUser?.role === "company super admin" &&
-      companies.length > 0
-    ) {
-      const companyId =
-        currentUser.companyId ??
-        currentUser.company_id;
-
-      if (!companyId) return;
-
-      const idStr = String(companyId);
-
-      const exists = companies.some(
-        c => String(c.company_id) === idStr
-      );
-
-      if (exists) {
-        setFormData(prev => ({
-          ...prev,
-          company_id: idStr
-        }));
-      }
-    }
-  }, [isModalOpen, currentUser, companies]);
-
-
-  useEffect(() => {
     fetchUsers();
   }, []);
+
+  // Open modal handler - pre-fill company for company admins
+  const handleOpenModal = () => {
+    console.log('🔍 Opening modal, currentUser:', {
+      isSuperAdmin: currentUser.isSuperAdmin,
+      companyId: currentUser.companyId,
+      companyRole: currentUser.companyRole
+    });
+
+    if (!currentUser.isSuperAdmin && currentUser.companyId) {
+      // Company super admin - pre-fill their company
+      const companyIdStr = String(currentUser.companyId);
+      console.log('✅ Pre-filling company_id:', companyIdStr);
+      
+      setFormData({
+        name: '',
+        email: '',
+        password: '',
+        company_id: companyIdStr,  // ✅ Pre-fill company_id
+        role: 'company super admin'
+      });
+    } else {
+      // Super admin - leave empty
+      setFormData({
+        name: '',
+        email: '',
+        password: '',
+        company_id: '',
+        role: 'company super admin'
+      });
+    }
+    
+    setFormError(null);
+    setIsModalOpen(true);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
     setSubmitting(true);
+
+    // ✅ Debug log
+    console.log('📤 Submitting form data:', {
+      name: formData.name,
+      email: formData.email,
+      company_id: formData.company_id,
+      role: formData.role
+    });
 
     try {
       const token = localStorage.getItem("firebaseToken");
@@ -137,13 +151,32 @@ const CompanyUsers: React.FC = () => {
 
       if (!res.ok) {
         const errorData = await res.json();
+        console.error('❌ Server error:', errorData);
         throw new Error(errorData.message || 'Failed to create user');
       }
 
       // Success - refresh list and close modal
       await fetchUsers();
       setIsModalOpen(false);
-      setFormData({ name: '', email: '', password: '', company_id: '', role: 'company super admin' });
+      
+      // Reset form
+      if (!currentUser.isSuperAdmin && currentUser.companyId) {
+        setFormData({
+          name: '',
+          email: '',
+          password: '',
+          company_id: String(currentUser.companyId),
+          role: 'company super admin'
+        });
+      } else {
+        setFormData({
+          name: '',
+          email: '',
+          password: '',
+          company_id: '',
+          role: 'company super admin'
+        });
+      }
     } catch (err: any) {
       setFormError(err.message);
     } finally {
@@ -154,6 +187,7 @@ const CompanyUsers: React.FC = () => {
   // Filter users
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.company_name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCompany = selectedCompanyFilter === 'all' || user.company_id === selectedCompanyFilter;
     return matchesSearch && matchesCompany;
@@ -187,36 +221,48 @@ const CompanyUsers: React.FC = () => {
             <UserCog className="text-blue-500" size={32} />
             Company Users
           </h1>
-          <p className="text-zinc-400 mt-1">Manage users across all companies</p>
+          <p className="text-zinc-400 mt-1">
+            {currentUser.isSuperAdmin 
+              ? 'Manage users across all companies'
+              : `Users in ${currentUser.companyName}`
+            }
+          </p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
-        >
-          <Plus size={20} />
-          Add User
-        </button>
+
+        {/* Only super admins and company super admins can add users */}
+        {(currentUser.isSuperAdmin || currentUser.companyRole === 'company super admin') && (
+          <button
+            onClick={handleOpenModal}  // ✅ Use handleOpenModal
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+          >
+            <Plus size={20} />
+            Add User
+          </button>
+        )}
       </div>
 
       {/* Filters Bar */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          {/* Company Filter */}
-          <div className="flex items-center gap-3">
-            <Building2 size={20} className="text-zinc-400" />
-            <select
-              value={selectedCompanyFilter}
-              onChange={(e) => setSelectedCompanyFilter(e.target.value)}
-              className="px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Companies</option>
-              {companies.map((company) => (
-                <option key={company.company_id} value={company.company_id}>
-                  {company.company_name}
-                </option>
-              ))}
-            </select>
-          </div>
+          
+          {/* Company Filter - Only for super admins */}
+          {currentUser.isSuperAdmin && (
+            <div className="flex items-center gap-3">
+              <Building2 size={20} className="text-zinc-400" />
+              <select
+                value={selectedCompanyFilter}
+                onChange={(e) => setSelectedCompanyFilter(e.target.value)}
+                className="px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Companies</option>
+                {companies.map((company) => (
+                  <option key={company.company_id} value={company.company_id}>
+                    {company.company_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Search */}
           <div className="relative w-full sm:w-64">
@@ -253,6 +299,12 @@ const CompanyUsers: React.FC = () => {
               <tr className="bg-zinc-950 border-b border-zinc-800">
                 <th className="text-left p-4 text-sm font-semibold text-zinc-400 uppercase tracking-wider">
                   <div className="flex items-center gap-2">
+                    <UserCog size={16} />
+                    Name
+                  </div>
+                </th>
+                <th className="text-left p-4 text-sm font-semibold text-zinc-400 uppercase tracking-wider">
+                  <div className="flex items-center gap-2">
                     <Mail size={16} />
                     Email
                   </div>
@@ -280,7 +332,7 @@ const CompanyUsers: React.FC = () => {
             <tbody className="divide-y divide-zinc-800">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="p-8 text-center text-zinc-500">
+                  <td colSpan={5} className="p-8 text-center text-zinc-500">
                     No users found
                   </td>
                 </tr>
@@ -288,7 +340,10 @@ const CompanyUsers: React.FC = () => {
                 filteredUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-zinc-800/50 transition-colors">
                     <td className="p-4">
-                      <span className="text-white font-medium">{user.email}</span>
+                      <span className="text-white font-medium">{user.name || 'N/A'}</span>
+                    </td>
+                    <td className="p-4">
+                      <span className="text-zinc-300">{user.email}</span>
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
@@ -324,7 +379,6 @@ const CompanyUsers: React.FC = () => {
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg w-full max-w-md">
-            {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-zinc-800">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
                 <Plus size={24} className="text-blue-500" />
@@ -338,20 +392,15 @@ const CompanyUsers: React.FC = () => {
               </button>
             </div>
 
-            {/* Modal Body */}
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               {/* Name */}
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-2">
-                  Name
-                </label>
+                <label className="block text-sm font-medium text-zinc-400 mb-2">Name</label>
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  placeholder="Enter full name"
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="John Doe"
                   className="w-full px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
@@ -359,9 +408,7 @@ const CompanyUsers: React.FC = () => {
 
               {/* Email */}
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-2">
-                  Email
-                </label>
+                <label className="block text-sm font-medium text-zinc-400 mb-2">Email</label>
                 <input
                   type="email"
                   value={formData.email}
@@ -374,9 +421,7 @@ const CompanyUsers: React.FC = () => {
 
               {/* Password */}
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-2">
-                  Password
-                </label>
+                <label className="block text-sm font-medium text-zinc-400 mb-2">Password</label>
                 <input
                   type="password"
                   value={formData.password}
@@ -389,14 +434,10 @@ const CompanyUsers: React.FC = () => {
               </div>
 
               {/* Company */}
-              {/* Company */}
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-2">
-                  Company
-                </label>
+                <label className="block text-sm font-medium text-zinc-400 mb-2">Company</label>
 
                 {currentUser?.isSuperAdmin ? (
-                  // Super admins can select any company
                   <select
                     value={formData.company_id}
                     onChange={(e) => setFormData({ ...formData, company_id: e.target.value })}
@@ -411,18 +452,12 @@ const CompanyUsers: React.FC = () => {
                     ))}
                   </select>
                 ) : (
-                  // Company super admins see their company (read-only display)
                   <>
                     <div className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-300">
                       {currentUser.companyName}
                     </div>
-                    {/* ✅ Hidden input to send company_id */}
-                    <input
-                      type="hidden"
-                      value={currentUser.companyId || ''}
-                    />
                     <p className="text-xs text-zinc-500 mt-1">
-                      Users will be added to your company
+                      Users will be added to your company (ID: {formData.company_id || 'not set'})
                     </p>
                   </>
                 )}
@@ -430,9 +465,7 @@ const CompanyUsers: React.FC = () => {
 
               {/* Role */}
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-2">
-                  Role
-                </label>
+                <label className="block text-sm font-medium text-zinc-400 mb-2">Role</label>
                 <select
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
@@ -444,14 +477,12 @@ const CompanyUsers: React.FC = () => {
                 </select>
               </div>
 
-              {/* Error Message */}
               {formError && (
                 <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
                   {formError}
                 </div>
               )}
 
-              {/* Buttons */}
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
