@@ -99,7 +99,7 @@ router.post("/company-users",
 
       // Insert into users table WITH name and role
       const [userResult] = await pool.query(
-        'INSERT INTO users (firebase_uid, email, name, role, is_active, created_at) VALUES (?, ?, ?, ?, 1, NOW())',
+        'INSERT INTO users (firebase_uid, email, name, role, is_active, created_at) VALUES (?, ?, ?, ?, 0, NOW())',
         [firebaseUser.uid, email, name, role]
       );
 
@@ -191,7 +191,7 @@ router.post("/super-admin-users",
 
       // Insert into users table WITH name and role
       await pool.query(
-        'INSERT INTO users (firebase_uid, email, name, role, is_active, created_at) VALUES (?, ?, ?, ?, 1, NOW())',
+        'INSERT INTO users (firebase_uid, email, name, role, is_active, created_at) VALUES (?, ?, ?, ?, 0, NOW())',
         [firebaseUser.uid, email, name, role]
       );
 
