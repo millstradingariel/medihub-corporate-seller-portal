@@ -12,7 +12,7 @@ interface AdminUser {
 }
 
 
-const CompanyUsers: React.FC = () => {
+const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,12 +89,10 @@ const CompanyUsers: React.FC = () => {
   };
 
   // Filter users
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCompany = selectedCompanyFilter === 'all' || user.name === selectedCompanyFilter;
-    return matchesSearch && matchesCompany;
-  });
+  const filteredUsers = users.filter(user =>
+    user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -139,21 +137,6 @@ const CompanyUsers: React.FC = () => {
       <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           {/* Company Filter */}
-          <div className="flex items-center gap-3">
-            <Building2 size={20} className="text-zinc-400" />
-            <select
-              value={selectedCompanyFilter}
-              onChange={(e) => setSelectedCompanyFilter(e.target.value)}
-              className="px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Users</option>
-              {users.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.name}
-                </option>
-              ))}
-            </select>
-          </div>
 
           {/* Search */}
           <div className="relative w-full sm:w-64">
@@ -369,4 +352,4 @@ const CompanyUsers: React.FC = () => {
   );
 };
 
-export default CompanyUsers;
+export default AdminUsers;
