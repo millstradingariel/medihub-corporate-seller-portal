@@ -64,11 +64,12 @@ router.get("/company-users",
   });
 
 // POST /api/company-users
+// POST /api/company-users
 router.post("/company-users",
   authenticate,
   authorize({
     allowAnySuperAdmin: true,
-    companyRoles: ['company super admin', 'company admin']
+    companyRoles: ['company super admin']  // ✅ Only 'company super admin' can create
   }),
   async (req, res) => {
     try {
@@ -76,63 +77,80 @@ router.post("/company-users",
 
       console.log('👤 User creating:', req.user.email);
       console.log('🏢 Target company_id:', company_id);
+      console.log('🔐 User role:', req.user.isSuperAdmin ? req.user.superAdminRole : req.user.companyRole);
 
-      // ✅ Restrict company super admins to their own company
+      // ✅ Security check: company super admins can only create users for their own company
       if (!req.user.isSuperAdmin) {
+        // This is a company super admin
+        if (!company_id) {
+          return res.status(400).json({ message: "Company ID is required" });
+        }
+        
         if (String(company_id) !== String(req.user.companyId)) {
+          console.log('❌ Company mismatch:', { 
+            requested: company_id, 
+            userCompany: req.user.companyId 
+          });
           return res.status(403).json({
             message: "You can only create users for your own company"
           });
         }
+        console.log('✅ Company match verified for company super admin');
+      } else {
+        console.log('✅ Super admin can create users for any company');
       }
 
-      // ✅ Validate fields
+      // Validate required fields
       if (!name || !email || !password || !company_id || !role) {
         return res.status(400).json({ message: "All fields are required" });
       }
 
-      // ✅ Only allow company-level roles to be created
+      // Validate role
       const validRoles = ['company super admin', 'company admin'];
       if (!validRoles.includes(role)) {
         return res.status(400).json({ message: "Invalid role" });
       }
 
-      // ✅ Check existing email
+      // Check if user already exists
       const [existingUsers] = await pool.query(
         'SELECT id FROM users WHERE email = ?',
         [email]
       );
-
       if (existingUsers.length > 0) {
         return res.status(400).json({
           message: "User with this email already exists"
         });
       }
 
-      // ✅ Create Firebase user
+      // Create user in Firebase
       const firebaseUser = await admin.auth().createUser({
         email,
         password,
         emailVerified: false
       });
 
-      // ✅ Insert into users table
+      console.log('✅ Firebase user created:', firebaseUser.uid);
+
+      // Insert into users table
       const [userResult] = await pool.query(
-        `INSERT INTO users
-         (firebase_uid, email, name, role, is_active, created_at)
-         VALUES (?, ?, ?, ?, 0, NOW())`,
+        'INSERT INTO users (firebase_uid, email, name, role, is_active, created_at) VALUES (?, ?, ?, ?, 0, NOW())',
         [firebaseUser.uid, email, name, role]
       );
 
       const userId = userResult.insertId;
 
-      // ✅ Link to company
+      // Link to company
       await pool.query(
-        `INSERT INTO company_users
-         (user_id, company_id, created_at)
-         VALUES (?, ?, NOW())`,
+        'INSERT INTO company_users (user_id, company_id, created_at) VALUES (?, ?, NOW())',
         [userId, company_id]
       );
+
+      console.log('✅ User created successfully:', { 
+        userId, 
+        email, 
+        company_id, 
+        role 
+      });
 
       res.json({
         message: "User created successfully",
@@ -140,22 +158,18 @@ router.post("/company-users",
       });
 
     } catch (err) {
-      console.error("Create company user error:", err);
-
+      console.error("❌ Create company user error:", err);
       if (err.code === 'auth/email-already-exists') {
         return res.status(400).json({
           message: "Email already exists in Firebase"
         });
       }
-
       res.status(500).json({
         message: "Server error",
         error: err.message
       });
     }
-  }
-);
-
+});
 
 /* ========== SUPER ADMIN USERS ========== */
 
