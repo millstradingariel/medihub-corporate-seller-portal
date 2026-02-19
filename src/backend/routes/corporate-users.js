@@ -85,9 +85,9 @@ router.post("/super-admin-users",
  */
 router.post("/company-users", authenticate, authorize({ allowAnySuperAdmin: true }), async (req, res) => {
   try {
-    const { email, password, company_id, role } = req.body;
+    const { name, email, password, company_id, role } = req.body;
 
-    if (!email || !password || !company_id || !role) {
+    if (!name || !email || !password || !company_id || !role) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -104,7 +104,7 @@ router.post("/company-users", authenticate, authorize({ allowAnySuperAdmin: true
     const firebaseUser = await admin.auth().createUser({ email, password, emailVerified: false });
 
     const [userResult] = await pool.query(
-      'INSERT INTO users (firebase_uid, email, created_at) VALUES (?, ?, NOW())',
+      'INSERT INTO users (firebase_uid, name, role, email, created_at) VALUES (?, ?, NOW())',
       [firebaseUser.uid, email]
     );
 

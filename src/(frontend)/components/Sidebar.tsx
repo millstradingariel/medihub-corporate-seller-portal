@@ -178,7 +178,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         {/* User Info */}
         <div className="p-4 border-b border-zinc-800">
           <p className="text-sm text-zinc-400">Logged in as</p>
-          <p className="text-white font-medium truncate">
+          <p className="text-white font-medium truncate pl-2">
             {partnerName}
           </p>
           {roleBadge && (

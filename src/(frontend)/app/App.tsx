@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import Logo from "../components/Logo";
 import PasswordChangeModal from "../components/PasswordChangeModal";
-
 import { Loader2 } from "lucide-react";
 import { Partner, Location, Order } from "../../../types";
 import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";

@@ -27,8 +27,17 @@ const CompanyUsers: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCompanyFilter, setSelectedCompanyFilter] = useState<string>('all');
 
+  const currentUser = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("currentUser") || "null");
+    } catch {
+      return null;
+    }
+  })();
+
   // Form state
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
     password: '',
     company_id: '',
@@ -77,6 +86,35 @@ const CompanyUsers: React.FC = () => {
   };
 
   useEffect(() => {
+    if (!isModalOpen) return;
+
+    if (
+      currentUser?.role === "company super admin" &&
+      companies.length > 0
+    ) {
+      const companyId =
+        currentUser.companyId ??
+        currentUser.company_id;
+
+      if (!companyId) return;
+
+      const idStr = String(companyId);
+
+      const exists = companies.some(
+        c => String(c.company_id) === idStr
+      );
+
+      if (exists) {
+        setFormData(prev => ({
+          ...prev,
+          company_id: idStr
+        }));
+      }
+    }
+  }, [isModalOpen, currentUser, companies]);
+
+
+  useEffect(() => {
     fetchUsers();
   }, []);
 
@@ -87,7 +125,7 @@ const CompanyUsers: React.FC = () => {
 
     try {
       const token = localStorage.getItem("firebaseToken");
-      
+
       const res = await fetch(`${API_URL}/api/company-users`, {
         method: 'POST',
         headers: {
@@ -105,7 +143,7 @@ const CompanyUsers: React.FC = () => {
       // Success - refresh list and close modal
       await fetchUsers();
       setIsModalOpen(false);
-      setFormData({ email: '', password: '', company_id: '', role: 'staff' });
+      setFormData({ name: '', email: '', password: '', company_id: '', role: 'company super admin' });
     } catch (err: any) {
       setFormError(err.message);
     } finally {
@@ -116,7 +154,7 @@ const CompanyUsers: React.FC = () => {
   // Filter users
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         user.company_name.toLowerCase().includes(searchQuery.toLowerCase());
+      user.company_name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCompany = selectedCompanyFilter === 'all' || user.company_id === selectedCompanyFilter;
     return matchesSearch && matchesCompany;
   });
@@ -302,6 +340,23 @@ const CompanyUsers: React.FC = () => {
 
             {/* Modal Body */}
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-400 mb-2">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  placeholder="Enter full name"
+                  className="w-full px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
               {/* Email */}
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-2">
@@ -338,19 +393,39 @@ const CompanyUsers: React.FC = () => {
                 <label className="block text-sm font-medium text-zinc-400 mb-2">
                   Company
                 </label>
-                <select
-                  value={formData.company_id}
-                  onChange={(e) => setFormData({ ...formData, company_id: e.target.value })}
-                  className="w-full px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="">Select a company</option>
-                  {companies.map((company) => (
-                    <option key={company.company_id} value={company.company_id}>
-                      {company.company_name}
-                    </option>
-                  ))}
-                </select>
+
+                {currentUser?.companyRole === "company super admin" ? (
+                  <input
+                    type="text"
+                    value={
+                      // Find company name from companies list
+                      companies.find(c => String(c.company_id) === String(currentUser.companyId))
+                        ?.company_name || ""
+                    }
+                    className="w-full px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-not-allowed"
+                    readOnly
+                  />
+                ) : (
+                  <select
+                    value={formData.company_id}
+                    onChange={(e) => setFormData({ ...formData, company_id: e.target.value })}
+                    className="w-full px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Select a company</option>
+                    {companies.map((company) => (
+                      <option key={company.company_id} value={company.company_id}>
+                        {company.company_name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {currentUser?.companyRole === "company super admin" && (
+                  <p className="text-xs text-zinc-500 mt-1">
+                    You can only create users for your company
+                  </p>
+                )}
               </div>
 
               {/* Role */}
