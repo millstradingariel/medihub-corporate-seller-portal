@@ -67,8 +67,8 @@ router.get("/company-users",
 router.post("/company-users",
   authenticate,
   authorize({
-    superAdminRoles: ['super admin'],        // ✅ Only 'super admin', not 'admin'
-    companyRoles: ['company super admin']    // ✅ Only 'company super admin', not 'company admin'
+    superAdminRoles: ['super admin'],       // Global super admin
+    companyRoles: ['company super admin']   // Company-level super admin
   }),
   async (req, res) => {
     try {
@@ -77,63 +77,62 @@ router.post("/company-users",
       console.log('👤 User creating:', req.user.email);
       console.log('🏢 Target company_id:', company_id);
 
-      // ✅ Security check: company super admins can only create users for their own company
+      // ✅ Restrict company super admins to their own company
       if (!req.user.isSuperAdmin) {
-        // This user is a company super admin (since they passed authorize)
         if (String(company_id) !== String(req.user.companyId)) {
-          console.log('❌ Company mismatch:', { requested: company_id, actual: req.user.companyId });
           return res.status(403).json({
             message: "You can only create users for your own company"
           });
         }
       }
 
-      // Validate required fields
+      // ✅ Validate fields
       if (!name || !email || !password || !company_id || !role) {
         return res.status(400).json({ message: "All fields are required" });
       }
 
-      // Validate role
+      // ✅ Only allow company-level roles to be created
       const validRoles = ['company super admin', 'company admin'];
       if (!validRoles.includes(role)) {
         return res.status(400).json({ message: "Invalid role" });
       }
 
-      // Check if user already exists
+      // ✅ Check existing email
       const [existingUsers] = await pool.query(
         'SELECT id FROM users WHERE email = ?',
         [email]
       );
+
       if (existingUsers.length > 0) {
         return res.status(400).json({
           message: "User with this email already exists"
         });
       }
 
-      // Create user in Firebase
+      // ✅ Create Firebase user
       const firebaseUser = await admin.auth().createUser({
         email,
         password,
         emailVerified: false
       });
 
-      console.log('✅ Firebase user created:', firebaseUser.uid);
-
-      // Insert into users table
+      // ✅ Insert into users table
       const [userResult] = await pool.query(
-        'INSERT INTO users (firebase_uid, email, name, role, is_active, created_at) VALUES (?, ?, ?, ?, 0, NOW())',
+        `INSERT INTO users
+         (firebase_uid, email, name, role, is_active, created_at)
+         VALUES (?, ?, ?, ?, 0, NOW())`,
         [firebaseUser.uid, email, name, role]
       );
 
       const userId = userResult.insertId;
 
-      // Link to company
+      // ✅ Link to company
       await pool.query(
-        'INSERT INTO company_users (user_id, company_id, created_at) VALUES (?, ?, NOW())',
+        `INSERT INTO company_users
+         (user_id, company_id, created_at)
+         VALUES (?, ?, NOW())`,
         [userId, company_id]
       );
-
-      console.log('✅ User created successfully:', { userId, email, company_id, role });
 
       res.json({
         message: "User created successfully",
@@ -141,18 +140,22 @@ router.post("/company-users",
       });
 
     } catch (err) {
-      console.error("❌ Create company user error:", err);
+      console.error("Create company user error:", err);
+
       if (err.code === 'auth/email-already-exists') {
         return res.status(400).json({
           message: "Email already exists in Firebase"
         });
       }
+
       res.status(500).json({
         message: "Server error",
         error: err.message
       });
     }
-  });
+  }
+);
+
 
 /* ========== SUPER ADMIN USERS ========== */
 

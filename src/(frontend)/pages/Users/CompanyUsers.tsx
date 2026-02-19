@@ -389,23 +389,14 @@ const CompanyUsers: React.FC = () => {
               </div>
 
               {/* Company */}
+              {/* Company */}
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-2">
                   Company
                 </label>
 
-                {currentUser?.companyRole === "company super admin" ? (
-                  <input
-                    type="text"
-                    value={
-                      // Find company name from companies list
-                      companies.find(c => String(c.company_id) === String(currentUser.companyId))
-                        ?.company_name || ""
-                    }
-                    className="w-full px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-not-allowed"
-                    readOnly
-                  />
-                ) : (
+                {currentUser?.isSuperAdmin ? (
+                  // Super admins can select any company
                   <select
                     value={formData.company_id}
                     onChange={(e) => setFormData({ ...formData, company_id: e.target.value })}
@@ -419,12 +410,21 @@ const CompanyUsers: React.FC = () => {
                       </option>
                     ))}
                   </select>
-                )}
-
-                {currentUser?.companyRole === "company super admin" && (
-                  <p className="text-xs text-zinc-500 mt-1">
-                    You can only create users for your company
-                  </p>
+                ) : (
+                  // Company super admins see their company (read-only display)
+                  <>
+                    <div className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-300">
+                      {currentUser.companyName}
+                    </div>
+                    {/* ✅ Hidden input to send company_id */}
+                    <input
+                      type="hidden"
+                      value={currentUser.companyId || ''}
+                    />
+                    <p className="text-xs text-zinc-500 mt-1">
+                      Users will be added to your company
+                    </p>
+                  </>
                 )}
               </div>
 
