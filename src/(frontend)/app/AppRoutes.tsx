@@ -12,6 +12,7 @@ import Payouts from "../pages/Finance/Payouts";
 import { Partner, Location, Order } from "../../../types";
 import CompanyUsers from "../pages/Users/CompanyUsers";
 import AdminUsers from "../pages/Users/AdminUsers";
+import Orders from "../pages/Order/Order";
 
 type Page =
   | "dashboard"
@@ -27,6 +28,7 @@ type Page =
   | "admin-users"
   | "paid-orders"
   | "payouts"
+  | "orders"
   | "accounts";
 
 interface Props {
@@ -64,6 +66,13 @@ const AppRoutes: React.FC<Props> = ({
 
     case "locations":
       return <Locations locations={locations} loading={locationsLoading} onSelectLocation={onSelectLocation} />;
+
+    case "orders":
+      return currentUser.companyRole === "company super admin" || currentUser.companyRole === "company admin"? (
+        <Orders />
+      ) : (
+        <div className="text-red-400">Access denied. Super Admins only.</div>
+      );
 
     case "devices":
       return selectedLocation ? (

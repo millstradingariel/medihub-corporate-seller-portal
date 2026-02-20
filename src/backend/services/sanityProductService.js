@@ -1,6 +1,6 @@
 const client = require("../config/sanityClient");
 
-exports.getProductsByLocation = async (locationid) => {
+exports.getProducts = async (locationid) => {
   const query = `
     *[
       _type == "productVariant" &&

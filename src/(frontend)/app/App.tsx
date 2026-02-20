@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import Logo from "../components/Logo";
 import PasswordChangeModal from "../components/PasswordChangeModal";
-import { Loader2 } from "lucide-react";
+import { Loader2, Menu } from "lucide-react";
 import { Partner, Location, Order } from "../../../types";
 import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebase/firebase.client";
@@ -24,6 +24,7 @@ export type Page =
   | "admin-users"
   | "paid-orders"
   | "payouts"
+  | "orders"
   | "accounts";
 
 const App: React.FC = () => {
@@ -339,27 +340,39 @@ const App: React.FC = () => {
         }}
         isMobileOpen={isMobileMenuOpen}
         setIsMobileOpen={setIsMobileMenuOpen}
-        partnerName={currentUser.name}
         currentUser={currentUser}
       />
 
-      <div className="flex-1 overflow-y-auto p-6">
-        {error ? (
-          <div className="text-red-400">{error}</div>
-        ) : (
-          <AppRoutes
-            activePage={activePage}
-            setActivePage={setActivePage}
-            locations={locations}
-            locationsLoading={locationsLoading}
-            selectedLocation={selectedLocation}
-            selectedKiosk={selectedKiosk}
-            setSelectedKiosk={setSelectedKiosk}
-            currentUser={currentUser}
-            onSelectLocation={handleSelectLocation}
-            onBackToLocations={handleBackToLocations}
-          />
-        )}
+      <div className="flex-1 flex flex-col">
+        {/* Top bar (mobile only) */}
+        <header className="bg-black border-b border-zinc-800 p-4 flex items-center justify-between lg:hidden">
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="text-white p-2 rounded hover:bg-zinc-800"
+          >
+            <Menu size={24} />
+          </button>
+        </header>
+
+        {/* Main content */}
+        <main className="flex-1 overflow-y-auto p-6">
+          {error ? (
+            <div className="text-red-400">{error}</div>
+          ) : (
+            <AppRoutes
+              activePage={activePage}
+              setActivePage={setActivePage}
+              locations={locations}
+              locationsLoading={locationsLoading}
+              selectedLocation={selectedLocation}
+              selectedKiosk={selectedKiosk}
+              setSelectedKiosk={setSelectedKiosk}
+              currentUser={currentUser}
+              onSelectLocation={handleSelectLocation}
+              onBackToLocations={handleBackToLocations}
+            />
+          )}
+        </main>
       </div>
     </div>
   );

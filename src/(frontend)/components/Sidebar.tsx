@@ -1,7 +1,21 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, ShoppingCart, MapPin, Users, LogOut, X, Building2, ChevronDown, ChevronRight, UserCog, Shield, DollarSign, Receipt, Wallet } from 'lucide-react';
+import {
+  LayoutDashboard,
+  ShoppingCart,
+  MapPin,
+  Users,
+  LogOut,
+  X,
+  Building2,
+  ChevronDown,
+  ChevronRight,
+  UserCog,
+  Shield,
+  DollarSign,
+  Wallet,
+} from 'lucide-react';
 import Logo from './Logo';
-import { IUser, Partner } from '../../../types';
+import { Partner } from '../../../types';
 
 interface SidebarProps {
   activePage: string;
@@ -9,7 +23,6 @@ interface SidebarProps {
   onLogout: () => void;
   isMobileOpen: boolean;
   setIsMobileOpen: (open: boolean) => void;
-  partnerName: string;
   currentUser: Partner;
 }
 
@@ -19,47 +32,29 @@ const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   isMobileOpen,
   setIsMobileOpen,
-  partnerName,
   currentUser,
 }) => {
   const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({});
 
   const toggleSubmenu = (menuId: string) => {
-    setExpandedMenus(prev => ({
+    setExpandedMenus((prev) => ({
       ...prev,
-      [menuId]: !prev[menuId]
+      [menuId]: !prev[menuId],
     }));
   };
 
-  // Get role badge config
   const getRoleBadge = () => {
     if (currentUser?.isSuperAdmin) {
       if (currentUser.superAdminRole === 'super admin') {
-        return {
-          text: 'Super Admin',
-          bgColor: 'bg-purple-500/20',
-          textColor: 'text-purple-400'
-        };
+        return { text: 'Super Admin', bgColor: 'bg-purple-500/20', textColor: 'text-purple-400' };
       } else if (currentUser.superAdminRole === 'admin') {
-        return {
-          text: 'Admin',
-          bgColor: 'bg-blue-500/20',
-          textColor: 'text-blue-400'
-        };
+        return { text: 'Admin', bgColor: 'bg-blue-500/20', textColor: 'text-blue-400' };
       }
     } else if (currentUser?.companyRole) {
       if (currentUser.companyRole === 'company super admin') {
-        return {
-          text: 'Company Super Admin',
-          bgColor: 'bg-red-500/20',
-          textColor: 'text-red-400'
-        };
+        return { text: 'Company Super Admin', bgColor: 'bg-red-500/20', textColor: 'text-red-400' };
       } else if (currentUser.companyRole === 'company admin') {
-        return {
-          text: 'Company Admin',
-          bgColor: 'bg-orange-500/20',
-          textColor: 'text-orange-400'
-        };
+        return { text: 'Company Admin', bgColor: 'bg-orange-500/20', textColor: 'text-orange-400' };
       }
     }
     return null;
@@ -68,78 +63,66 @@ const Sidebar: React.FC<SidebarProps> = ({
   const roleBadge = getRoleBadge();
 
   const navItems = currentUser?.isSuperAdmin
-    ? // CORPORATE PORTAL (super admin, admin)
-    currentUser.superAdminRole === 'super admin'
+    ? currentUser.superAdminRole === 'super admin'
       ? [
-        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'companies', label: 'Companies', icon: Building2 },
-        {
-          id: 'finance',
-          label: 'Finance',
-          icon: DollarSign,
-          hasSubmenu: true,
-          submenu: [
-            { id: 'payouts', label: 'Payouts', icon: Wallet },
-            { id: 'accounts', label: 'Accounts', icon: Building2 },
-          ]
-        },
-        {
-          id: 'users',
-          label: 'Users',
-          icon: Users,
-          hasSubmenu: true,
-          submenu: [
-            { id: 'company-users', label: 'Company Users', icon: UserCog },
-            { id: 'admin-users', label: 'Admin Users', icon: Shield },
-          ]
-        },
-      ]
-      : // currentUser.superAdminRole === 'admin'
-      [
-        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'companies', label: 'Companies', icon: Building2 },
-        {
-          id: 'finance',
-          label: 'Finance',
-          icon: DollarSign,
-          hasSubmenu: true,
-          submenu: [
-            { id: 'payouts', label: 'Payouts', icon: Wallet },
-            { id: 'accounts', label: 'Accounts', icon: Building2 },
-          ]
-        },
-        {
-          id: 'users',
-          label: 'Users',
-          icon: Users,
-          hasSubmenu: true,
-          submenu: [
-            { id: 'company-users', label: 'Company Users', icon: UserCog },
-            // NO Admin Users for 'admin' role
-          ]
-        },
-      ]
-    : // SELLER PORTAL (company super admin, company admin)
-    currentUser?.companyRole === 'company super admin'
-      ? [
+          { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+          { id: 'companies', label: 'Companies', icon: Building2 },
+          {
+            id: 'finance',
+            label: 'Finance',
+            icon: DollarSign,
+            hasSubmenu: true,
+            submenu: [
+              { id: 'payouts', label: 'Payouts', icon: Wallet },
+              { id: 'accounts', label: 'Accounts', icon: Building2 },
+            ],
+          },
+          {
+            id: 'users',
+            label: 'Users',
+            icon: Users,
+            hasSubmenu: true,
+            submenu: [
+              { id: 'company-users', label: 'Company Users', icon: UserCog },
+              { id: 'admin-users', label: 'Admin Users', icon: Shield },
+            ],
+          },
+        ]
+      : [
+          { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+          { id: 'companies', label: 'Companies', icon: Building2 },
+          {
+            id: 'finance',
+            label: 'Finance',
+            icon: DollarSign,
+            hasSubmenu: true,
+            submenu: [
+              { id: 'payouts', label: 'Payouts', icon: Wallet },
+              { id: 'accounts', label: 'Accounts', icon: Building2 },
+            ],
+          },
+          {
+            id: 'users',
+            label: 'Users',
+            icon: Users,
+            hasSubmenu: true,
+            submenu: [{ id: 'company-users', label: 'Company Users', icon: UserCog }],
+          },
+        ]
+    : currentUser?.companyRole === 'company super admin'
+    ? [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'locations', label: 'Locations', icon: MapPin },
+        { id: 'orders', label: 'Orders', icon: Wallet },
         {
           id: 'users',
           label: 'Users',
           icon: Users,
           hasSubmenu: true,
-          submenu: [
-            { id: 'company-users', label: 'Company Users', icon: UserCog },
-          ]
+          submenu: [{ id: 'company-users', label: 'Company Users', icon: UserCog }],
         },
       ]
-      : // currentUser?.companyRole === 'company admin'
-      [
-        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'locations', label: 'Locations', icon: MapPin },
-        // NO Users section for company admin
-      ];
+    : [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }, { id: 'locations', label: 'Locations', icon: MapPin }];
 
   const handleNavigate = (pageId: string) => {
     onNavigate(pageId);
@@ -158,15 +141,12 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Sidebar */}
       <div
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-black border-r border-zinc-800 text-white transform transition-transform duration-200 ease-in-out ${
-          isMobileOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:translate-x-0 flex flex-col h-full`}
+        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-black border-r border-zinc-800 text-white transform transition-transform duration-200 ease-in-out
+        ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 flex flex-col h-full`}
       >
         {/* Logo / Header */}
         <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
-          <div className="flex items-center h-10">
-            <Logo className="h-9 w-auto" />
-          </div>
+          <Logo className="h-9 w-auto" />
           <button
             className="lg:hidden text-zinc-400 hover:text-white"
             onClick={() => setIsMobileOpen(false)}
@@ -178,11 +158,11 @@ const Sidebar: React.FC<SidebarProps> = ({
         {/* User Info */}
         <div className="p-4 border-b border-zinc-800">
           <p className="text-sm text-zinc-400">Logged in as</p>
-          <p className="text-white font-medium truncate pl-2">
-            {currentUser.name}
-          </p>
+          <p className="text-white font-medium truncate pl-2">{currentUser.name}</p>
           {roleBadge && (
-            <span className={`inline-block mt-1 px-2 py-1 text-xs ${roleBadge.bgColor} ${roleBadge.textColor} rounded`}>
+            <span
+              className={`inline-block mt-1 px-2 py-1 text-xs ${roleBadge.bgColor} ${roleBadge.textColor} rounded`}
+            >
               {roleBadge.text}
             </span>
           )}
@@ -194,7 +174,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             const Icon = item.icon;
             const isActive = activePage === item.id;
             const hasSubmenu = item.hasSubmenu && item.submenu;
-            const isSubmenuActive = hasSubmenu && item.submenu?.some(sub => activePage === sub.id);
+            const isSubmenuActive = hasSubmenu && item.submenu?.some((sub) => activePage === sub.id);
             const isExpanded = expandedMenus[item.id];
 
             return (
@@ -202,11 +182,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                 {/* Main Item */}
                 <button
                   onClick={() => {
-                    if (hasSubmenu) {
-                      toggleSubmenu(item.id);
-                    } else {
-                      handleNavigate(item.id);
-                    }
+                    if (hasSubmenu) toggleSubmenu(item.id);
+                    else handleNavigate(item.id);
                   }}
                   className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
                     isActive || isSubmenuActive
@@ -218,13 +195,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <Icon size={20} />
                     <span className="font-medium">{item.label}</span>
                   </div>
-                  {hasSubmenu && (
-                    isExpanded ? (
-                      <ChevronDown size={16} className="text-zinc-400" />
-                    ) : (
-                      <ChevronRight size={16} className="text-zinc-400" />
-                    )
-                  )}
+                  {hasSubmenu && (isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />)}
                 </button>
 
                 {/* Submenu */}
