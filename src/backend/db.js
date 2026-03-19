@@ -1,15 +1,23 @@
 const mysql = require('mysql2/promise');
 
-const pool = mysql.createPool({
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    database: 'medihub_test',
+let pool;
+
+try {
+  pool = mysql.createPool({
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    socketPath: `/cloudsql/${process.env.INSTANCE_CONNECTION_NAME}`,
     waitForConnections: true,
-});
+    connectionLimit: 5,
+    queueLimit: 0,
+    connectTimeout: 10000,
+  });
 
-pool.query('SELECT 1')
-    .then(() => console.log('🟢 MySQL connected'))
-    .catch(err => console.error('🔴 MySQL error', err));
+  console.log('Database pool created successfully');
+} catch (error) {
+  console.error('Error creating database pool:', error);
+  pool = null;
+}
 
-module.exports = { pool }; // ✅ Correct
+module.exports = { pool };
